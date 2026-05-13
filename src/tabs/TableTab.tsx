@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { parseISO, isAfter } from 'date-fns';
 import { usePlanStore } from '../store/usePlanStore';
-import { fmtHours, vakTotal, VAK_PER_DAY, MAX_CARRY_VAK_DAYS, MAX_CARRY_RV_HOURS } from '../utils/holidays';
+import { fmtHours, vakTotal, VAK_PER_DAY, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS } from '../utils/holidays';
 import { Badge } from '../components/Badge';
 import type { BucketType } from '../types';
 
@@ -37,9 +37,12 @@ export function TableTab() {
   // to show running totals we need all events sorted by date
   const allEvents: Array<{ date: string; kind: string; payload: unknown }> = [];
 
-  // RV transactions
+  // RV transactions — skip those that are linked to a leave entry (they show up in the LEAVE row)
+  const leaveRvTxIds = new Set(leaveEntries.map((l) => l.rvTransactionId).filter(Boolean));
   for (const tx of rvTransactions) {
-    allEvents.push({ date: tx.date, kind: 'RV', payload: tx });
+    if (!leaveRvTxIds.has(tx.id)) {
+      allEvents.push({ date: tx.date, kind: 'RV', payload: tx });
+    }
   }
 
   // Holiday taken events
@@ -215,7 +218,7 @@ export function TableTab() {
   const vakSurvivingHours = vakSurviving.reduce((s, b) => s + b.hours, 0);
 
   // Carry-over VAK cap: 6 days, measured in full VAK days (VAK_PER_DAY each)
-  const carryVakMax = MAX_CARRY_VAK_DAYS * VAK_PER_DAY; // 38.4h
+  const carryVakMax = MAX_CARRY_VAK_HOURS;
   const vakCarryOver = Math.min(vakSurvivingHours, carryVakMax);
   const vakLostAboveCap = Math.max(0, vakSurvivingHours - carryVakMax);
 
@@ -383,7 +386,7 @@ export function TableTab() {
                   <span className="font-mono">{fmtHours(vakSurvivingHours)} u</span>
                 </div>
                 <div className="flex justify-between text-xs text-blue-600">
-                  <span>Plafond overdracht (max {MAX_CARRY_VAK_DAYS} dagen)</span>
+                  <span>Plafond overdracht (max {MAX_CARRY_VAK_HOURS} hours)</span>
                   <span className="font-mono">{fmtHours(carryVakMax)} u</span>
                 </div>
                 {vakLostAboveCap > 0 && (

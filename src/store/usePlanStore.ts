@@ -23,6 +23,7 @@ import {
   HOURS_PER_DAY,
   QUARTERLY_RV,
   VAK_PER_DAY,
+  MAX_CARRY_RV_HOURS,
 } from '../utils/holidays';
 
 function genId(): string {
@@ -51,7 +52,7 @@ interface PlanStore extends AppState {
   initYear: (
     year: number,
     restDay: number,
-    carryVakDays: number,
+    carryVakHours: number,
     carryRvHours: number,
   ) => void;
   updateSettings: (s: Partial<AppSettings>) => void;
@@ -83,21 +84,20 @@ export const usePlanStore = create<PlanStore>()(
       updateSettings: (s) =>
         set((state) => ({ settings: { ...state.settings, ...s } })),
 
-      initYear: (year, restDay, carryVakDays, carryRvHours) => {
+      initYear: (year, restDay, carryVakHours, carryRvHours) => {
         const wv = HOURS_PER_DAY * WORK_PCT * 26; // 166.4h base WV
 
         // --- VAK STACK (ordered: expiring first, WV base last) ---
         const vakStack: VakBucket[] = [];
 
         // 1. Carry-over VAK (expires Feb 28)
-        if (carryVakDays > 0) {
-          const cappedDays = Math.min(carryVakDays, 6);
+        if (carryVakHours > 0) {
           vakStack.push({
             id: genId(),
-            label: `Overdracht VAK ${year - 1} (max 6 dagen)`,
+            label: `Overdracht VAK ${year - 1}`,
             type: 'CARRY_VAK',
-            hours: cappedDays * VAK_PER_DAY,
-            totalHours: cappedDays * VAK_PER_DAY,
+            hours: carryVakHours,
+            totalHours: carryVakHours,
             addedOn: `${year}-01-01`,
             expiresOn: `${year}-02-28`,
           });
@@ -106,7 +106,7 @@ export const usePlanStore = create<PlanStore>()(
         // 2. Base WV (no expiry, always at bottom)
         vakStack.push({
           id: genId(),
-          label: `Wettelijk verlof ${year} (26 dagen × 80%)`,
+          label: `Wettelijk verlof ${year} (26 dagen × ${WORK_PCT})`,
           type: 'WV',
           hours: wv,
           totalHours: wv,
@@ -120,13 +120,12 @@ export const usePlanStore = create<PlanStore>()(
 
         // Carry-over RV from previous year (capped at 24h, no expiry)
         if (carryRvHours > 0) {
-          const capped = Math.min(carryRvHours, 24);
-          rvBal += capped;
+          rvBal += carryRvHours;
           rvTxs.push({
             id: genId(),
             date: `${year}-01-01`,
-            deltaHours: capped,
-            label: `Overdracht RV ${year - 1} (max 24u)`,
+            deltaHours: carryRvHours,
+            label: `Overdracht RV ${year - 1}`,
             balance: rvBal,
           });
         }
@@ -193,6 +192,7 @@ export const usePlanStore = create<PlanStore>()(
         let rvTxs = state.rvTransactions;
         const consumed: BucketConsumption[] = [];
         let rvConsumed = 0;
+        let rvTxId: string | null = null;
 
         if (vakAvail >= costHours) {
           const result = consumeVak(stackWithBucket, costHours);
@@ -217,6 +217,7 @@ export const usePlanStore = create<PlanStore>()(
             balance: rvBal,
           };
           rvTxs = [...state.rvTransactions, tx];
+          rvTxId = tx.id;
         }
 
         // 3. Record the leave entry linked to this holiday
@@ -227,6 +228,7 @@ export const usePlanStore = create<PlanStore>()(
           source: 'AUTO',
           bucketsConsumed: consumed,
           rvHoursConsumed: rvConsumed,
+          rvTransactionId: rvTxId,
           note: `Feestdag: ${holiday.label}`,
         };
 
@@ -309,6 +311,7 @@ export const usePlanStore = create<PlanStore>()(
             source: 'RV',
             bucketsConsumed: [],
             rvHoursConsumed: hours,
+            rvTransactionId: tx.id,
             note,
           };
           set((s) => ({
@@ -325,7 +328,7 @@ export const usePlanStore = create<PlanStore>()(
           const { newStack, consumed } = consumeVak(state.vakStack, hours);
           const entry: LeaveEntry = {
             id: genId(), date, hours, source: 'VAK',
-            bucketsConsumed: consumed, rvHoursConsumed: 0, note,
+            bucketsConsumed: consumed, rvHoursConsumed: 0, rvTransactionId: null, note,
           };
           set((s) => ({
             vakStack: sortVakStack(newStack),
@@ -340,7 +343,7 @@ export const usePlanStore = create<PlanStore>()(
           const { newStack, consumed } = consumeVak(state.vakStack, hours);
           const entry: LeaveEntry = {
             id: genId(), date, hours, source: 'AUTO',
-            bucketsConsumed: consumed, rvHoursConsumed: 0, note,
+            bucketsConsumed: consumed, rvHoursConsumed: 0, rvTransactionId: null, note,
           };
           set((s) => ({
             vakStack: sortVakStack(newStack),
@@ -363,7 +366,7 @@ export const usePlanStore = create<PlanStore>()(
         };
         const entry: LeaveEntry = {
           id: genId(), date, hours, source: 'AUTO',
-          bucketsConsumed: consumed, rvHoursConsumed: rvPart, note,
+          bucketsConsumed: consumed, rvHoursConsumed: rvPart, rvTransactionId: tx.id, note,
         };
         set((s) => ({
           vakStack: sortVakStack(newStack),
@@ -379,25 +382,17 @@ export const usePlanStore = create<PlanStore>()(
         const entry = state.leaveEntries.find((e) => e.id === leaveId);
         if (!entry) return;
 
-        // Restore VAK buckets
-        let vakStack = state.vakStack.map((b) => {
+        // Restore VAK buckets to their state before this entry was booked
+        const vakStack = state.vakStack.map((b) => {
           const c = entry.bucketsConsumed.find((x) => x.bucketId === b.id);
           return c ? { ...b, hours: b.hours + c.hours } : b;
         });
 
-        // Restore RV
+        // Restore RV balance and remove the exact RV transaction that was created for this entry
         const newRvBal = state.rvBalance + entry.rvHoursConsumed;
-        let rvTxs = state.rvTransactions;
-        if (entry.rvHoursConsumed > 0) {
-          const tx: RvTransaction = {
-            id: genId(),
-            date: entry.date,
-            deltaHours: entry.rvHoursConsumed,
-            label: `Terugboeking verlof ${entry.date}`,
-            balance: newRvBal,
-          };
-          rvTxs = [...rvTxs, tx];
-        }
+        const rvTxs = entry.rvTransactionId
+          ? state.rvTransactions.filter((tx) => tx.id !== entry.rvTransactionId)
+          : state.rvTransactions;
 
         set({
           vakStack: sortVakStack(vakStack),

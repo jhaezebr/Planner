@@ -4,8 +4,8 @@ import type { HolidayEvent, HolidayType, VakBucket } from '../types';
 export const WORK_PCT = 0.8;
 export const HOURS_PER_DAY = 8;
 export const VAK_PER_DAY = HOURS_PER_DAY * WORK_PCT; // 6.4h
-export const QUARTERLY_RV = 24; // hours added per quarter
-export const MAX_CARRY_VAK_DAYS = 6;
+export const QUARTERLY_RV = 24 * WORK_PCT; // hours added per quarter, prorated to work% (= 19.2h at 80%)
+export const MAX_CARRY_VAK_HOURS = Math.round(6 * HOURS_PER_DAY * WORK_PCT * 10) / 10;
 export const MAX_CARRY_RV_HOURS = 24;
 export const VF_EXPIRY_WEEKS = 6;
 

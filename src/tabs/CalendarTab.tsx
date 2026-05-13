@@ -13,7 +13,7 @@ import {
 } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { usePlanStore } from '../store/usePlanStore';
-import { fmtHours } from '../utils/holidays';
+import { fmtHours, HOURS_PER_DAY } from '../utils/holidays';
 import { Badge } from '../components/Badge';
 import type { HolidayType } from '../types';
 
@@ -22,7 +22,8 @@ const HOLIDAY_VARIANT: Record<HolidayType, 'OF' | 'DF' | 'RF' | 'VF' | 'GF'> = {
 };
 
 export function CalendarTab() {
-  const { settings, holidayEvents, leaveEntries, vakStack } = usePlanStore();
+  const store = usePlanStore();
+  const { settings, holidayEvents, leaveEntries, vakStack } = store;
   const [current, setCurrent] = useState(() => new Date(settings.year || new Date().getFullYear(), 0, 1));
 
   const today = new Date();
@@ -30,8 +31,8 @@ export function CalendarTab() {
   const monthEnd = endOfMonth(current);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Pad start (week starts on Monday, index 1)
-  const startPad = (getDay(monthStart) + 6) % 7; // Mon=0
+  // Pad start (week starts on Monday)
+  const startPad = (getDay(monthStart) + 6) % 7;
   const paddedDays: (Date | null)[] = [
     ...Array(startPad).fill(null),
     ...days,
@@ -56,6 +57,40 @@ export function CalendarTab() {
   const isRestDay = (d: Date) => getDay(d) === settings.restDay;
   const isWeekend = (d: Date) => { const wd = getDay(d); return wd === 0 || wd === 6; };
 
+  // Click cycle: no leave → VAK → RV → remove
+  const handleDayClick = (dateStr: string, d: Date) => {
+    if (!settings.initialized) return;
+    if (isWeekend(d) || isRestDay(d)) return;
+
+    const existingLeaves = leaveEntries.filter((e) => e.date === dateStr);
+
+    if (existingLeaves.length === 0) {
+      // Cycle step 1: try VAK, fall through to RV if insufficient
+      const errVak = store.addLeave(dateStr, HOURS_PER_DAY, 'VAK');
+      if (errVak) {
+        // Not enough VAK — skip straight to RV
+        const errRv = store.addLeave(dateStr, HOURS_PER_DAY, 'RV');
+        if (errRv) {
+          // Neither available — stay empty, no message
+        }
+      }
+    } else {
+      const current = existingLeaves[0];
+      const isVak = current.source === 'VAK' || (current.source === 'AUTO' && current.rvHoursConsumed === 0);
+      if (isVak) {
+        // Cycle step 2: switch to RV
+        store.removeLeave(current.id);
+        const errRv = store.addLeave(dateStr, HOURS_PER_DAY, 'RV');
+        if (errRv) {
+          // Not enough RV — skip to empty (leave already removed)
+        }
+      } else {
+        // Cycle step 3: remove, back to empty
+        store.removeLeave(current.id);
+      }
+    }
+  };
+
   return (
     <div className="p-4 max-w-5xl mx-auto">
       {/* Navigation */}
@@ -68,18 +103,19 @@ export function CalendarTab() {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-2 mb-4 text-xs">
+      <div className="flex flex-wrap gap-2 mb-4 text-xs items-center">
         <Badge variant="OF">OF</Badge><span className="text-gray-500">Officieel</span>
         <Badge variant="DF">DF</Badge><span className="text-gray-500">Decreet</span>
         <Badge variant="RF">RF</Badge><span className="text-gray-500">Reglementair</span>
         <Badge variant="VF">VF</Badge><span className="text-gray-500">Vervangend</span>
         <Badge variant="GF">GF</Badge><span className="text-gray-500">Gentse feesten</span>
-        <span className="inline-block w-3 h-3 rounded bg-amber-200 border border-amber-400 my-auto"></span>
+        <span className="inline-block w-3 h-3 rounded bg-blue-100 border border-blue-300"></span>
+        <span className="text-gray-500">VAK verlof</span>
+        <span className="inline-block w-3 h-3 rounded bg-cyan-100 border border-cyan-300"></span>
+        <span className="text-gray-500">RV verlof</span>
+        <span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-300"></span>
         <span className="text-gray-500">Vervalt binnenkort</span>
-        <span className="inline-block w-3 h-3 rounded bg-blue-100 border border-blue-300 my-auto"></span>
-        <span className="text-gray-500">Verlof geboekt</span>
-        <span className="inline-block w-3 h-3 rounded bg-gray-100 border border-gray-300 my-auto"></span>
-        <span className="text-gray-500">Rustdag</span>
+        <span className="ml-2 text-gray-400 italic">Klik op een dag: leeg → VAK → RV → leeg</span>
       </div>
 
       {/* Day headers (Mon–Sun) */}
@@ -98,13 +134,18 @@ export function CalendarTab() {
           const holidays = getHolidaysOnDay(d);
           const leaves = getLeavesOnDay(d);
           const isRest = isRestDay(d) && !isWeekend(d);
+          const isWknd = isWeekend(d);
           const hasLeave = leaves.length > 0;
+          const hasRvLeave = leaves.some((l) => l.source === 'RV' || l.rvHoursConsumed > 0);
           const hasExpWarning = expiryWarningDates.has(dateStr);
           const isToday = isSameDay(d, today);
+          const isClickable = settings.initialized && !isWknd && !isRest;
 
-          let cellClass = 'rounded-lg border p-1 min-h-[80px] text-xs transition-colors ';
-          if (isWeekend(d) || isRest) {
+          let cellClass = 'rounded-lg border p-1 min-h-[80px] text-xs transition-colors select-none ';
+          if (isWknd || isRest) {
             cellClass += 'bg-gray-50 border-gray-200 ';
+          } else if (hasRvLeave) {
+            cellClass += 'bg-cyan-50 border-cyan-300 ';
           } else if (hasLeave) {
             cellClass += 'bg-blue-50 border-blue-200 ';
           } else if (hasExpWarning) {
@@ -113,9 +154,15 @@ export function CalendarTab() {
             cellClass += 'bg-white border-gray-200 ';
           }
           if (isToday) cellClass += 'ring-2 ring-blue-400 ';
+          if (isClickable) cellClass += 'cursor-pointer hover:brightness-95 active:brightness-90 ';
 
           return (
-            <div key={dateStr} className={cellClass}>
+            <div
+              key={dateStr}
+              className={cellClass}
+              onClick={() => handleDayClick(dateStr, d)}
+              title={isClickable ? 'Klik: leeg → VAK → RV → leeg' : undefined}
+            >
               <div className={`font-semibold mb-0.5 ${isToday ? 'text-blue-600' : 'text-gray-600'}`}>
                 {format(d, 'd')}
               </div>
@@ -130,8 +177,8 @@ export function CalendarTab() {
               ))}
               {leaves.map((l) => (
                 <div key={l.id} className="mt-0.5">
-                  <Badge variant={l.source === 'RV' ? 'RV' : 'WV'} size="xs">
-                    {l.source} {fmtHours(l.hours)}u
+                  <Badge variant={l.source === 'RV' || l.rvHoursConsumed > 0 ? 'RV' : 'WV'} size="xs">
+                    {l.source === 'RV' || l.rvHoursConsumed > 0 ? 'RV' : 'VAK'} {fmtHours(l.hours)}u
                   </Badge>
                 </div>
               ))}

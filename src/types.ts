@@ -40,6 +40,7 @@ export interface LeaveEntry {
   source: LeaveSource;
   bucketsConsumed: BucketConsumption[]; // for VAK / AUTO
   rvHoursConsumed: number;              // for RV portion
+  rvTransactionId: string | null;       // ID of the RV deduction transaction, if any
   note: string;
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { usePlanStore } from '../store/usePlanStore';
-import { DAY_NAMES, HOLIDAY_LABELS, MAX_CARRY_VAK_DAYS, MAX_CARRY_RV_HOURS, fmtHours, vakTotal, VAK_PER_DAY } from '../utils/holidays';
+import { DAY_NAMES, HOLIDAY_LABELS, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS, fmtHours, vakTotal, VAK_PER_DAY } from '../utils/holidays';
 import type { HolidayType, LeaveSource } from '../types';
 import { Badge } from '../components/Badge';
 import { format, parseISO, addWeeks } from 'date-fns';
@@ -82,14 +82,16 @@ export function InputTab() {
             </select>
           </div>
           <div>
-            <label className="label">Overdracht VAK (dagen, max {MAX_CARRY_VAK_DAYS})</label>
-            <input type="number" className="input" min={0} max={MAX_CARRY_VAK_DAYS} step={0.5} value={carryVak}
+            <label className="label">Overdracht VAK (uren, max {MAX_CARRY_VAK_HOURS})</label>
+            {/* <input type="number" className="input" min={0} max={MAX_CARRY_VAK_HOURS} step={0.5} value={carryVak} */}
+            <input type="number" className="input" min={0}  step={0.1} value={carryVak}
               onChange={(e) => setCarryVak(Number(e.target.value))} />
             <p className="text-[10px] text-gray-400 mt-0.5">Vervalt 28 feb {setupYear}</p>
           </div>
           <div>
             <label className="label">Overdracht RV (uren, max {MAX_CARRY_RV_HOURS})</label>
-            <input type="number" className="input" min={0} max={MAX_CARRY_RV_HOURS} step={0.5} value={carryRv}
+            {/* <input type="number" className="input" min={0} max={MAX_CARRY_RV_HOURS} step={0.5} value={carryRv} */}
+            <input type="number" className="input" min={0} step={0.1} value={carryRv}
               onChange={(e) => setCarryRv(Number(e.target.value))} />
             <p className="text-[10px] text-gray-400 mt-0.5">Geen vervaldatum</p>
           </div>
