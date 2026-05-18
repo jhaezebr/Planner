@@ -16,7 +16,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { usePlanStore } from '../store/usePlanStore';
-import { HOURS_PER_DAY, VAK_PER_DAY, QUARTERLY_RV, vakTotal } from '../utils/holidays';
+import { VAK_PER_DAY, QUARTERLY_RV, vakTotal } from '../utils/holidays';
 
 // Helper: get the current store state
 const s = () => usePlanStore.getState();
@@ -106,10 +106,24 @@ describe('initYear', () => {
     ]);
   });
 
-  it('pre-populates 16 holiday events all with PENDING status', () => {
+  it('pre-populates 16 holiday events all with TAKEN status and their VAK buckets', () => {
     initClean();
     expect(s().holidayEvents).toHaveLength(16);
-    expect(s().holidayEvents.every((h) => h.status === 'PENDING')).toBe(true);
+    expect(s().holidayEvents.every((h) => h.status === 'TAKEN')).toBe(true);
+    expect(s().holidayEvents.every((h) => h.vakBucketId !== null)).toBe(true);
+  });
+
+  it('vakStack after initYear includes WV + 16 holiday buckets (no carry)', () => {
+    initClean();
+    // 14 full-day holidays (6.4h each) + 2 GF half-days (3.2h each) + WV
+    const wv = s().vakStack.find((b) => b.type === 'WV')!;
+    expect(wv).toBeDefined();
+    expect(wv.hours).toBeCloseTo(26 * 8 * 0.8); // 166.4h
+    // Total holiday bucket hours: 14 × 6.4 + 2 × 3.2 = 96h
+    const holidayBucketHours = s().vakStack
+      .filter((b) => b.type !== 'WV' && b.type !== 'CARRY_VAK')
+      .reduce((sum, b) => sum + b.hours, 0);
+    expect(holidayBucketHours).toBeCloseTo(96);
   });
 
   it('clears existing leave entries on re-initialisation', () => {
@@ -122,88 +136,69 @@ describe('initYear', () => {
 
   it('CARRY_VAK bucket is sorted before WV (nearest expiry first)', () => {
     initClean(3 * VAK_PER_DAY, 0);
-    expect(s().vakStack[0].type).toBe('CARRY_VAK');
-    expect(s().vakStack[s().vakStack.length - 1].type).toBe('WV');
+    const stack = s().vakStack;
+    const carryIdx = stack.findIndex((b) => b.type === 'CARRY_VAK');
+    const wvIdx = stack.findIndex((b) => b.type === 'WV');
+    expect(carryIdx).toBeGreaterThanOrEqual(0);
+    expect(wvIdx).toBe(stack.length - 1); // WV (no expiry) is always last
+    expect(carryIdx).toBeLessThan(wvIdx); // CARRY_VAK sorts before WV
   });
 });
 
 // ─── markHolidayTaken ───────────────────────────────────────────────────────
 
-describe('markHolidayTaken', () => {
-  it('transitions holiday status from PENDING to TAKEN', () => {
-    initClean();
-    const h = s().holidayEvents.find((h) => h.type === 'OF')!;
-    s().markHolidayTaken(h.id);
-    expect(s().holidayEvents.find((x) => x.id === h.id)!.status).toBe('TAKEN');
-  });
+// Helper: inject a PENDING holiday into the store for testing markHolidayTaken
+function injectPending(date: string, type: 'VF' | 'RF' | 'GF' = 'VF') {
+  usePlanStore.setState((st) => ({
+    holidayEvents: [
+      ...st.holidayEvents,
+      { id: `test-${date}`, date, type, label: `Test ${type}`, status: 'PENDING' as const, isRestDay: false, vakBucketId: null },
+    ],
+  }));
+  return `test-${date}`;
+}
 
-  it('adds a VAK bucket with earned hours = 8h × 80% = 6.4h', () => {
+describe('markHolidayTaken (earn-only — no leave deduction)', () => {
+  it('is a no-op for an already TAKEN holiday (all initYear holidays are TAKEN)', () => {
     initClean();
+    const h = s().holidayEvents[0]; // TAKEN by initYear
     const vakBefore = vakTotal(s().vakStack);
-    const h = s().holidayEvents.find((h) => h.type === 'OF')!;
-    s().markHolidayTaken(h.id);
-    // Net change: +6.4h earned − 8h cost = −1.6h
-    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 1.6);
+    s().markHolidayTaken(h.id); // no-op
+    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore);
   });
 
-  it('deducts the leave cost (8h) from VAK via cascade', () => {
+  it('adds +6.4h VAK bucket and marks PENDING holiday as TAKEN', () => {
     initClean();
-    const h = s().holidayEvents.find((h) => h.date === `${YEAR}-05-01`)!; // Dag van de Arbeid
+    const id = injectPending(`${YEAR}-08-20`);
     const vakBefore = vakTotal(s().vakStack);
-    s().markHolidayTaken(h.id);
-    // +6.4 earned, −8 cost → net −1.6
-    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 1.6);
+    s().markHolidayTaken(id);
+    expect(s().holidayEvents.find((h) => h.id === id)!.status).toBe('TAKEN');
+    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore + VAK_PER_DAY); // +6.4h only
   });
 
-  it('creates a leave entry linked to the holiday', () => {
+  it('does NOT create a leave entry (leave booking is separate)', () => {
     initClean();
-    const h = s().holidayEvents.find((h) => h.type === 'OF')!;
-    s().markHolidayTaken(h.id);
-    const leave = s().leaveEntries.find((l) => l.date === h.date);
-    expect(leave).toBeDefined();
-    expect(leave!.hours).toBe(HOURS_PER_DAY); // 8h cost
-    expect(leave!.note).toContain(h.label);
+    const id = injectPending(`${YEAR}-09-01`);
+    const leavesBefore = s().leaveEntries.length;
+    s().markHolidayTaken(id);
+    expect(s().leaveEntries.length).toBe(leavesBefore); // no leave entry
   });
 
-  it('GF half-day earns 3.2h and costs 4h', () => {
+  it('GF holiday earns 3.2h (half-day × 80%) — no leave cost', () => {
     initClean();
-    const gf = s().holidayEvents.find((h) => h.type === 'GF')!;
+    const id = injectPending(`${YEAR}-07-17`, 'GF');
     const vakBefore = vakTotal(s().vakStack);
-    s().markHolidayTaken(gf.id);
-    // +3.2h earned − 4h cost = −0.8h
-    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 0.8);
-    const leave = s().leaveEntries.find((l) => l.date === gf.date);
-    expect(leave!.hours).toBe(4);
+    s().markHolidayTaken(id);
+    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore + 3.2); // +3.2h only
   });
 
-  it('is a no-op when called on an already TAKEN holiday', () => {
+  it('sets vakBucketId on the holiday event and adds bucket to vakStack', () => {
     initClean();
-    const h = s().holidayEvents.find((h) => h.type === 'OF')!;
-    s().markHolidayTaken(h.id);
-    const vakAfterFirst = vakTotal(s().vakStack);
-    s().markHolidayTaken(h.id); // second call — should do nothing
-    expect(vakTotal(s().vakStack)).toBeCloseTo(vakAfterFirst);
-    expect(s().leaveEntries.filter((l) => l.date === h.date)).toHaveLength(1);
-  });
-
-  it('overflows to RV when VAK stack is empty', () => {
-    // Use up all VAK first, leaving 0 VAK
-    s().initYear(YEAR, REST_DAY, 0, 0);
-    // Drain the entire WV bucket by removing it
-    const wvBucket = s().vakStack.find((b) => b.type === 'WV')!;
-    // Simulate zero VAK by re-initialising with 0 and forcibly draining
-    // Easiest approach: book leave for all 26 days to drain VAK
-    // Instead, directly test the overflow path by booking 167h of leave
-    // (which will consume all 166.4h WV and force 0.6h overflow)
-    const allVak = vakTotal(s().vakStack);
-    s().addLeave(`${YEAR}-06-01`, allVak, 'VAK'); // drain all VAK
-    expect(vakTotal(s().vakStack)).toBeCloseTo(0);
-
-    const rvBefore = s().rvBalance;
-    const h = s().holidayEvents.find((h) => h.type === 'OF' && h.date > `${YEAR}-06-01`)!;
-    s().markHolidayTaken(h.id);
-    // VAK earned = 6.4h, cost = 8h → overflow 8 − 6.4 = 1.6h from RV
-    expect(s().rvBalance).toBeCloseTo(rvBefore - 1.6);
+    const id = injectPending(`${YEAR}-08-20`);
+    s().markHolidayTaken(id);
+    const bucketId = s().holidayEvents.find((h) => h.id === id)!.vakBucketId;
+    expect(bucketId).not.toBeNull();
+    expect(s().vakStack.find((b) => b.id === bucketId)).toBeDefined();
   });
 });
 
@@ -212,17 +207,18 @@ describe('markHolidayTaken', () => {
 describe('markHolidayExpired', () => {
   it('transitions holiday status to EXPIRED', () => {
     initClean();
-    const h = s().holidayEvents.find((h) => h.type === 'RF')!;
-    s().markHolidayExpired(h.id);
-    expect(s().holidayEvents.find((x) => x.id === h.id)!.status).toBe('EXPIRED');
+    // Inject a PENDING holiday so markHolidayExpired has something to act on
+    const id = injectPending(`${YEAR}-09-10`, 'RF');
+    s().markHolidayExpired(id);
+    expect(s().holidayEvents.find((x) => x.id === id)!.status).toBe('EXPIRED');
   });
 
-  it('does not add any VAK bucket or leave entry', () => {
+  it('does not change VAK stack or leave entries', () => {
     initClean();
     const vakBefore = vakTotal(s().vakStack);
     const leavesBefore = s().leaveEntries.length;
-    const h = s().holidayEvents[0];
-    s().markHolidayExpired(h.id);
+    const id = injectPending(`${YEAR}-09-10`, 'RF');
+    s().markHolidayExpired(id);
     expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore);
     expect(s().leaveEntries.length).toBe(leavesBefore);
   });
@@ -259,12 +255,13 @@ describe('addLeave', () => {
       expect(s().rvBalance).toBeCloseTo(rvBefore);
     });
 
-  it('consumes the carry-over VAK bucket (nearest expiry) first', () => {
-    initClean(2 * VAK_PER_DAY, 0); // 12.8h carry expiring Feb 28
+  it('consumes expiring buckets before the WV (no-expiry) bucket', () => {
+    initClean(2 * VAK_PER_DAY, 0); // 12.8h carry + holiday buckets, all expiring before WV
+    const wvBefore = s().vakStack.find((b) => b.type === 'WV')!.hours;
     s().addLeave(`${YEAR}-01-15`, 8, 'VAK');
-    const carry = s().vakStack.find((b) => b.type === 'CARRY_VAK')!;
-    // 12.8h − 8h = 4.8h remaining in carry bucket
-    expect(carry.hours).toBeCloseTo(12.8 - 8);
+    const wvAfter = s().vakStack.find((b) => b.type === 'WV')!.hours;
+    // WV should not be touched since there are expiring buckets available
+    expect(wvAfter).toBeCloseTo(wvBefore);
   });    it('stores bucketsConsumed on the leave entry', () => {
       initClean();
       s().addLeave(`${YEAR}-06-15`, 8, 'VAK');
@@ -489,11 +486,11 @@ describe('expireBuckets', () => {
 
   it('marks PENDING holidays as EXPIRED when their 6-week window has passed', () => {
     initClean();
-    const nieuwjaar = s().holidayEvents.find((h) => h.date === `${YEAR}-01-01`)!;
-    expect(nieuwjaar.status).toBe('PENDING');
-    // Nieuwjaar + 6 weeks = Feb 12; run expiry on Feb 13
+    // All initYear holidays are TAKEN; inject a PENDING one to test expiry logic
+    const pendingId = injectPending(`${YEAR}-01-01`);
+    // Jan 1 + 6 weeks = Feb 12; run expiry on Feb 13
     s().expireBuckets(`${YEAR}-02-13`);
-    expect(s().holidayEvents.find((h) => h.id === nieuwjaar.id)!.status).toBe('EXPIRED');
+    expect(s().holidayEvents.find((h) => h.id === pendingId)!.status).toBe('EXPIRED');
   });
 
   it('does not expire TAKEN or already EXPIRED holidays', () => {

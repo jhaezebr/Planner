@@ -24,6 +24,7 @@ import {
   QUARTERLY_RV,
   VAK_PER_DAY,
   MAX_CARRY_RV_HOURS,
+  MAX_CARRY_VAK_HOURS,
 } from '../utils/holidays';
 
 function genId(): string {
@@ -90,14 +91,15 @@ export const usePlanStore = create<PlanStore>()(
         // --- VAK STACK (ordered: expiring first, WV base last) ---
         const vakStack: VakBucket[] = [];
 
-        // 1. Carry-over VAK (expires Feb 28)
+        // 1. Carry-over VAK (expires Feb 28, capped at MAX_CARRY_VAK_HOURS)
         if (carryVakHours > 0) {
+          const capped = Math.min(carryVakHours, MAX_CARRY_VAK_HOURS);
           vakStack.push({
             id: genId(),
             label: `Overdracht VAK ${year - 1}`,
             type: 'CARRY_VAK',
-            hours: carryVakHours,
-            totalHours: carryVakHours,
+            hours: capped,
+            totalHours: capped,
             addedOn: `${year}-01-01`,
             expiresOn: `${year}-02-28`,
           });
@@ -118,13 +120,14 @@ export const usePlanStore = create<PlanStore>()(
         const rvTxs: RvTransaction[] = [];
         let rvBal = 0;
 
-        // Carry-over RV from previous year (capped at 24h, no expiry)
+        // Carry-over RV from previous year (capped at MAX_CARRY_RV_HOURS)
         if (carryRvHours > 0) {
-          rvBal += carryRvHours;
+          const capped = Math.min(carryRvHours, MAX_CARRY_RV_HOURS);
+          rvBal += capped;
           rvTxs.push({
             id: genId(),
             date: `${year}-01-01`,
-            deltaHours: carryRvHours,
+            deltaHours: capped,
             label: `Overdracht RV ${year - 1}`,
             balance: rvBal,
           });
@@ -142,8 +145,25 @@ export const usePlanStore = create<PlanStore>()(
           });
         }
 
-        // --- HOLIDAYS ---
-        const holidays = generateHolidays(year, restDay);
+        // --- HOLIDAYS: auto-earn VAK buckets at year start ---
+        const rawHolidays = generateHolidays(year, restDay);
+        const holidayEvents: HolidayEvent[] = [];
+
+        for (const h of rawHolidays) {
+          const earnedHours = getHolidayVakHours(h);
+          const expiresOn = getVakExpiry(h);
+          const bucketId = genId();
+          vakStack.push({
+            id: bucketId,
+            label: `${h.label} (${h.date})`,
+            type: h.type,
+            hours: earnedHours,
+            totalHours: earnedHours,
+            addedOn: h.date,
+            expiresOn,
+          });
+          holidayEvents.push({ ...h, status: 'TAKEN', vakBucketId: bucketId });
+        }
 
         set({
           settings: {
@@ -155,7 +175,7 @@ export const usePlanStore = create<PlanStore>()(
           vakStack: sortVakStack(vakStack),
           rvBalance: rvBal,
           rvTransactions: rvTxs,
-          holidayEvents: holidays,
+          holidayEvents,
           leaveEntries: [],
           expiredBuckets: [],
         });
@@ -166,13 +186,9 @@ export const usePlanStore = create<PlanStore>()(
         const holiday = state.holidayEvents.find((h) => h.id === holidayId);
         if (!holiday || holiday.status !== 'PENDING') return;
 
-        // Hours earned into VAK (8h × workPct, or 4h × workPct for GF)
         const earnedHours = getHolidayVakHours(holiday);
-        // Actual cost of taking the day off (always 8h, or 4h for GF half-day)
-        const costHours = holiday.type === 'GF' ? 4 : HOURS_PER_DAY;
         const expiresOn = getVakExpiry(holiday);
 
-        // 1. Create the VAK bucket for the earned hours
         const bucket: VakBucket = {
           id: genId(),
           label: `${holiday.label} (${holiday.date})`,
@@ -183,60 +199,8 @@ export const usePlanStore = create<PlanStore>()(
           expiresOn,
         };
 
-        // 2. Add bucket to stack, then deduct the leave cost
-        const stackWithBucket = sortVakStack([...state.vakStack, bucket]);
-        const vakAvail = vakTotal(stackWithBucket);
-
-        let finalStack = stackWithBucket;
-        let rvBal = state.rvBalance;
-        let rvTxs = state.rvTransactions;
-        const consumed: BucketConsumption[] = [];
-        let rvConsumed = 0;
-        let rvTxId: string | null = null;
-
-        if (vakAvail >= costHours) {
-          const result = consumeVak(stackWithBucket, costHours);
-          finalStack = sortVakStack(result.newStack);
-          consumed.push(...result.consumed);
-        } else {
-          // Consume all VAK then overflow to RV
-          const vakPart = vakAvail;
-          const rvPart = costHours - vakPart;
-          if (vakPart > 0) {
-            const result = consumeVak(stackWithBucket, vakPart);
-            finalStack = sortVakStack(result.newStack);
-            consumed.push(...result.consumed);
-          }
-          rvBal = state.rvBalance - rvPart;
-          rvConsumed = rvPart;
-          const tx: RvTransaction = {
-            id: genId(),
-            date: holiday.date,
-            deltaHours: -rvPart,
-            label: `Feestdag ${holiday.date} (overflow naar RV)`,
-            balance: rvBal,
-          };
-          rvTxs = [...state.rvTransactions, tx];
-          rvTxId = tx.id;
-        }
-
-        // 3. Record the leave entry linked to this holiday
-        const leaveEntry: LeaveEntry = {
-          id: genId(),
-          date: holiday.date,
-          hours: costHours,
-          source: 'AUTO',
-          bucketsConsumed: consumed,
-          rvHoursConsumed: rvConsumed,
-          rvTransactionId: rvTxId,
-          note: `Feestdag: ${holiday.label}`,
-        };
-
         set((s) => ({
-          vakStack: finalStack,
-          rvBalance: rvBal,
-          rvTransactions: rvTxs,
-          leaveEntries: [...s.leaveEntries, leaveEntry].sort((a, b) => a.date.localeCompare(b.date)),
+          vakStack: sortVakStack([...s.vakStack, bucket]),
           holidayEvents: s.holidayEvents.map((h) =>
             h.id === holidayId
               ? { ...h, status: 'TAKEN', vakBucketId: bucket.id }
@@ -255,11 +219,10 @@ export const usePlanStore = create<PlanStore>()(
 
       addManualHoliday: (date, type, label) => {
         const { settings } = get();
-        const restDay = settings.restDay;
         const d = parseISO(date);
-        const isRestDay = getDay(d) === restDay;
+        const isRestDay = getDay(d) === settings.restDay;
 
-        const holiday: HolidayEvent = {
+        const tempHoliday: HolidayEvent = {
           id: genId(),
           date,
           type,
@@ -269,7 +232,23 @@ export const usePlanStore = create<PlanStore>()(
           vakBucketId: null,
         };
 
+        // Auto-earn the VAK bucket immediately
+        const earnedHours = getHolidayVakHours(tempHoliday);
+        const expiresOn = getVakExpiry(tempHoliday);
+        const bucketId = genId();
+        const bucket: VakBucket = {
+          id: bucketId,
+          label: `${label} (${date})`,
+          type,
+          hours: earnedHours,
+          totalHours: earnedHours,
+          addedOn: date,
+          expiresOn,
+        };
+        const holiday: HolidayEvent = { ...tempHoliday, status: 'TAKEN', vakBucketId: bucketId };
+
         set((s) => ({
+          vakStack: sortVakStack([...s.vakStack, bucket]),
           holidayEvents: [...s.holidayEvents, holiday].sort((a, b) =>
             a.date.localeCompare(b.date),
           ),

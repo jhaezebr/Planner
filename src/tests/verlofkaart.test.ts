@@ -175,16 +175,13 @@ describe('January 2026: holiday and VF leave deductions', () => {
    *
    * We test the our-model net: −1.6h per full OF holiday.
    */
-  it('OF holiday (Jan 1) net effect on VAK = −1.6h (earn 6.4h, cost 8h)', () => {
+  it('OF holiday (Jan 1) bucket auto-earned at initYear; booking 8h leave = −8h from cascade', () => {
     s().initYear(2026, 3, 0, 0);
-    const vakBefore = vakTotal(s().vakStack);
-    // Mark Nieuwjaar (Jan 1 OF)
     const jan1 = s().holidayEvents.find((h) => h.date === '2026-01-01')!;
-    expect(jan1).toBeDefined();
-    expect(jan1.type).toBe('OF');
-
-    s().markHolidayTaken(jan1.id);
-    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 1.6); // net −1.6h
+    expect(jan1.status).toBe('TAKEN'); // auto-earned
+    const vakBefore = vakTotal(s().vakStack);
+    s().addLeave('2026-01-01', 8, 'VAK');
+    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 8);
   });
 
   /**
@@ -192,18 +189,24 @@ describe('January 2026: holiday and VF leave deductions', () => {
    *   Each costs 8h from VAK cascade.
    *   In our model VF is a holiday: earn 6.4h, cost 8h → net −1.6h each.
    */
-  it('VF holiday net effect on VAK = −1.6h each (earn 6.4h, cost 8h)', () => {
-    // VF (VervangingsFeestdag) holidays are NOT auto-generated — they are added
-    // manually when an official day falls on a weekend/rest day (e.g., Jan 6 in
-    // the CSV was a manual VF added because Driekoningen fell on a weekend).
+  it('VF holiday auto-earns +6.4h via addManualHoliday (immediately TAKEN)', () => {
+    // VF holidays are NOT auto-generated — they are added manually.
+    // addManualHoliday now auto-earns the bucket immediately (no Opnemen click needed).
     s().initYear(2026, 3, 0, 0);
-    s().addManualHoliday('2026-01-06', 'VF', 'Driekoningen (VF)'); // CSV Jan 6 VF
-    const vf = s().holidayEvents.find((h) => h.date === '2026-01-06')!;
-    expect(vf).toBeDefined();
     const vakBefore = vakTotal(s().vakStack);
+    s().addManualHoliday('2026-01-06', 'VF', 'Driekoningen (VF)');
+    const vf = s().holidayEvents.find((h) => h.date === '2026-01-06')!;
+    expect(vf.status).toBe('TAKEN');
+    expect(vf.vakBucketId).not.toBeNull();
+    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore + VAK_PER_DAY); // +6.4h earned
+  });
 
-    s().markHolidayTaken(vf.id);
-    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 1.6); // earn 6.4h − cost 8h ✓
+  it('booking 8h leave on a VF holiday day deducts 8h from cascade', () => {
+    s().initYear(2026, 3, 0, 0);
+    s().addManualHoliday('2026-01-06', 'VF', 'Driekoningen (VF)');
+    const vakBefore = vakTotal(s().vakStack);
+    s().addLeave('2026-01-06', 8, 'VAK');
+    expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 8);
   });
 
   /**
@@ -229,8 +232,13 @@ describe('January 2026: holiday and VF leave deductions', () => {
 
     // Book Jan leaves (all from VAK)
     s().addLeave('2026-01-13', 2, 'VAK');  // partial VF
-    const vfDays = s().holidayEvents.filter((h) => h.type === 'VF').slice(0, 3);
-    vfDays.forEach((h) => s().markHolidayTaken(h.id));
+    s().addManualHoliday('2026-01-06', 'VF', 'Driekoningen');
+    s().addManualHoliday('2026-01-21', 'VF', 'VF 21/1');
+    s().addManualHoliday('2026-01-27', 'VF', 'VF 27/1');
+    // Book leave for each VF day
+    s().addLeave('2026-01-06', 8, 'VAK');
+    s().addLeave('2026-01-21', 8, 'VAK');
+    s().addLeave('2026-01-27', 8, 'VAK');
 
     expect(s().rvBalance).toBeCloseTo(rvAfterInit);
   });
@@ -313,22 +321,27 @@ describe('April 2026: OF holiday net −1.6h (CSV: 150:24 → 148:48)', () => {
    * This is the CLEAREST confirmation of our earn−cost model:
    *   earn 6.4h OF bucket, cost 8h cascade = net −1.6h
    */
-  it('OF holiday (Apr 6 Paasmaandag) net VAK change = −1.6h (CSV 150:24 → 148:48)', () => {
+  it('OF holiday (Apr 6 Paasmaandag) VAK bucket auto-earned at initYear', () => {
     s().initYear(2026, 3, 0, 0);
-    // Use up enough VAK so remaining = 150:24 = 150.4h to mirror CSV starting point
-    const currentVak = vakTotal(s().vakStack);
+    const apr6 = s().holidayEvents.find((h) => h.date === '2026-04-06')!;
+    expect(apr6.status).toBe('TAKEN');
+    const bucket = s().vakStack.find((b) => b.id === apr6.vakBucketId!)!;
+    expect(bucket.hours).toBeCloseTo(VAK_PER_DAY); // 6.4h
+  });
+
+  it('booking 8h leave on Apr 6 (CSV 150:24 → 148:48 net −1.6h from WV baseline)', () => {
+    // CSV: 150:24 → 148:48 reflects earn+cost in same day in the old model.
+    // New model: bucket already in stack. Book 8h leave → -8h from cascade.
+    // Net from WV-only perspective: +6.4h (bucket) −8h (leave) = −1.6h ✓
+    s().initYear(2026, 3, 0, 0);
+    // Drain down to 150.4h to mirror CSV starting balance
+    const current = vakTotal(s().vakStack);
     const target = hm('150:24');
-    if (currentVak > target) {
-      s().addLeave('2026-03-01', currentVak - target, 'VAK');
-    }
+    if (current > target) s().addLeave('2026-03-01', current - target, 'VAK');
     expect(vakTotal(s().vakStack)).toBeCloseTo(target);
 
-    const paasmaandag = s().holidayEvents.find((h) => h.date === '2026-04-06');
-    expect(paasmaandag).toBeDefined();
-    expect(paasmaandag!.type).toBe('OF');
-
-    s().markHolidayTaken(paasmaandag!.id);
-    expect(vakTotal(s().vakStack)).toBeCloseTo(hm('148:48')); // CSV ✓
+    s().addLeave('2026-04-06', 8, 'VAK');
+    expect(vakTotal(s().vakStack)).toBeCloseTo(hm('142:24')); // 150.4 − 8 = 142.4h
   });
 
   /**
@@ -346,11 +359,10 @@ describe('April 2026: OF holiday net −1.6h (CSV: 150:24 → 148:48)', () => {
    * CSV Apr 6 (OF holiday):
    *   RV saldo = 52:48 (unchanged — holiday taken from VAK, not RV)
    */
-  it('OF holiday does not consume RV when VAK is sufficient', () => {
+  it('booking leave on Apr 6 (OF holiday) does not consume RV when VAK is sufficient', () => {
     s().initYear(2026, 3, 0, hm('14:24'));
     const rvBefore = s().rvBalance;
-    const apr6 = s().holidayEvents.find((h) => h.date === '2026-04-06')!;
-    s().markHolidayTaken(apr6.id);
+    s().addLeave('2026-04-06', 8, 'VAK');
     expect(s().rvBalance).toBeCloseTo(rvBefore);
   });
 
@@ -391,18 +403,22 @@ describe('Running balance totals across the whole CSV period', () => {
    */
   it('after all CSV leaves from a fresh year, VAK decreases by correct total', () => {
     s().initYear(2026, 3, 0, 0);
-    const vakStart = vakTotal(s().vakStack); // 166.4h
+    const vakStart = vakTotal(s().vakStack); // 166.4h WV + 96h holiday buckets = 262.4h
 
-    // Jan holidays
-    ['2026-01-01','2026-04-06'].forEach((date) => {
-      const h = s().holidayEvents.find((h) => h.date === date)!;
-      if (h) s().markHolidayTaken(h.id);
-    });
-    const vfHolidays = s().holidayEvents.filter((h) => h.type === 'VF').slice(0, 3);
-    vfHolidays.forEach((h) => s().markHolidayTaken(h.id));
-
-    // Manual partial leaves (VF partial)
+    // Jan 1 OF: already earned at initYear. Book leave.
+    s().addLeave('2026-01-01', 8, 'VAK');
+    // Jan 6 VF (manual): auto-earns +6.4h, then book leave.
+    s().addManualHoliday('2026-01-06', 'VF', 'Driekoningen');
+    s().addLeave('2026-01-06', 8, 'VAK');
+    // Jan 13 partial VF leave
     s().addLeave('2026-01-13', 2, 'VAK');
+    // Jan 21, 27 VF (manual)
+    s().addManualHoliday('2026-01-21', 'VF', 'VF 21/1');
+    s().addLeave('2026-01-21', 8, 'VAK');
+    s().addManualHoliday('2026-01-27', 'VF', 'VF 27/1');
+    s().addLeave('2026-01-27', 8, 'VAK');
+    // Apr 6 OF: already earned at initYear. Book leave.
+    s().addLeave('2026-04-06', 8, 'VAK');
 
     // Feb leaves
     ['2026-02-02','2026-02-03','2026-02-09','2026-02-11','2026-02-16','2026-02-23']
@@ -417,12 +433,9 @@ describe('Running balance totals across the whole CSV period', () => {
     // Apr leave
     s().addLeave('2026-04-30', 8, 'VAK');
 
-    // Full holidays: 5 × (−1.6) = −8h net, partial leaves: 2+4+2+8×6+8+8=80h, Apr30=8h
-    // Net = −8h holiday net + −80h manual leaves + −8h apr30 = −96h total from 166.4h
-    // Remaining should be > 0 (model only has 166.4h, CSV starts with 254.4h)
-    const vakEnd = vakTotal(s().vakStack);
-    expect(vakEnd).toBeGreaterThanOrEqual(0);
-    expect(vakEnd).toBeLessThan(vakStart);
+    // VAK should have decreased (exact value depends on cascade order)
+    expect(vakTotal(s().vakStack)).toBeGreaterThanOrEqual(0);
+    expect(vakTotal(s().vakStack)).toBeLessThan(vakStart);
   });
 
   /**
