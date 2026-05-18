@@ -143,6 +143,44 @@ describe('initYear', () => {
     expect(wvIdx).toBe(stack.length - 1); // WV (no expiry) is always last
     expect(carryIdx).toBeLessThan(wvIdx); // CARRY_VAK sorts before WV
   });
+
+  it('each holiday event maps to exactly one bucket in vakStack (no duplicate buckets)', () => {
+    initClean();
+    const takenHolidays = s().holidayEvents.filter((h) => h.vakBucketId !== null);
+    const bucketIds = takenHolidays.map((h) => h.vakBucketId!);
+    const uniqueBucketIds = new Set(bucketIds);
+    // Every vakBucketId must be unique — no two holidays share a bucket
+    expect(uniqueBucketIds.size).toBe(takenHolidays.length);
+    // Every vakBucketId must exist in the vakStack
+    for (const id of bucketIds) {
+      expect(s().vakStack.some((b) => b.id === id)).toBe(true);
+    }
+  });
+
+  it('each holiday has exactly one expiry date (no holiday-type bucket appears twice)', () => {
+    initClean();
+    const holidayBuckets = s().vakStack.filter(
+      (b) => !['WV', 'CARRY_VAK', 'CARRY_RV'].includes(b.type),
+    );
+    // Each holiday event should produce at most one bucket
+    const takenHolidays = s().holidayEvents.filter((h) => h.vakBucketId !== null);
+    expect(holidayBuckets.length).toBe(takenHolidays.length);
+    // No two buckets should have the same (label, expiresOn) pair
+    const labelExpiry = holidayBuckets.map((b) => `${b.label}|${b.expiresOn}`);
+    expect(new Set(labelExpiry).size).toBe(holidayBuckets.length);
+  });
+
+  it('re-initialising the year does NOT accumulate duplicate holiday buckets', () => {
+    initClean();
+    const countAfterFirst = s().vakStack.filter(
+      (b) => !['WV', 'CARRY_VAK', 'CARRY_RV'].includes(b.type),
+    ).length;
+    initClean(); // re-init same year
+    const countAfterSecond = s().vakStack.filter(
+      (b) => !['WV', 'CARRY_VAK', 'CARRY_RV'].includes(b.type),
+    ).length;
+    expect(countAfterSecond).toBe(countAfterFirst);
+  });
 });
 
 // ─── markHolidayTaken ───────────────────────────────────────────────────────

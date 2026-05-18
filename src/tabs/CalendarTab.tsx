@@ -9,7 +9,6 @@ import {
   parseISO,
   addMonths,
   subMonths,
-  addDays,
 } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { usePlanStore } from '../store/usePlanStore';
@@ -38,19 +37,15 @@ export function CalendarTab() {
     ...days,
   ];
 
-  // Expiry warnings: collect dates where a bucket expires within 7 days
+  // Expiry warnings: only the exact expiry date, so each bucket gets exactly one ⏰ day
   const expiryWarningDates = new Set<string>();
   const expiryWarningLabels = new Map<string, string[]>();
   for (const b of vakStack) {
     if (!b.expiresOn) continue;
-    const exp = parseISO(b.expiresOn);
-    for (let i = 0; i < 7; i++) {
-      const d = format(addDays(exp, -i), 'yyyy-MM-dd');
-      expiryWarningDates.add(d);
-      const existing = expiryWarningLabels.get(d) ?? [];
-      existing.push(`${b.label} vervalt op ${b.expiresOn} (${fmtHours(b.hours)}u)`);
-      expiryWarningLabels.set(d, existing);
-    }
+    expiryWarningDates.add(b.expiresOn);
+    const existing = expiryWarningLabels.get(b.expiresOn) ?? [];
+    existing.push(`${b.label}: ${fmtHours(b.hours)}u`);
+    expiryWarningLabels.set(b.expiresOn, existing);
   }
 
   const getHolidaysOnDay = (d: Date) =>
