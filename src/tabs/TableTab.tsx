@@ -70,13 +70,21 @@ export function TableTab() {
     }
   }
 
+  // Forecast expiry rows: holiday buckets in vakStack with remaining hours and an expiry date
+  for (const b of vakStack) {
+    if (b.expiresOn && b.hours > 0 && !['WV', 'CARRY_VAK', 'CARRY_RV'].includes(b.type)) {
+      allEvents.push({ date: b.expiresOn, kind: 'HOLIDAY_EXPIRY_FORECAST', payload: b });
+    }
+  }
+
   const KIND_ORDER: Record<string, number> = {
-    INIT_BUCKET: 0, // carry-over VAK + base WV always first
-    RV: 1,          // carry-over RV transaction (also Q1 top-up) second
+    INIT_BUCKET: 0,
+    RV: 1,
     HOLIDAY: 2,
     HOLIDAY_EXP: 3,
     LEAVE: 4,
-    EXPIRED_BUCKET: 5,
+    HOLIDAY_EXPIRY_FORECAST: 5,
+    EXPIRED_BUCKET: 6,
   };
   allEvents.sort((a, b) => {
     const dateCmp = a.date.localeCompare(b.date);
@@ -173,6 +181,21 @@ export function TableTab() {
         expiry: null,
         note: l.source,
         rowClass: '',
+      });
+    } else if (kind === 'HOLIDAY_EXPIRY_FORECAST') {
+      const b = payload as typeof vakStack[0];
+      rows.push({
+        id: b.id + '-forecast',
+        date,
+        type: b.type,
+        description: `Vervalt: ${b.label}`,
+        vakDelta: -b.hours,
+        vakBalance: runVak - b.hours,
+        rvDelta: null,
+        rvBalance: runRv,
+        expiry: b.expiresOn,
+        note: 'prognose',
+        rowClass: 'bg-orange-50 text-orange-700 italic',
       });
     } else if (kind === 'EXPIRED_BUCKET') {
       const b = payload as typeof expiredBuckets[0];
