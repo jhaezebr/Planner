@@ -27,6 +27,7 @@ export function InputTab() {
   const [lSource, setLSource] = useState<LeaveSource>('AUTO');
   const [lNote, setLNote] = useState('');
   const [lError, setLError] = useState<string | null>(null);
+  const [showHolidays, setShowHolidays] = useState(false);
 
   const handleInit = () => {
     store.initYear(setupYear, setupRestDay, carryVak, carryRv);
@@ -133,77 +134,85 @@ export function InputTab() {
 
           {/* ── Feestdagen ───────────────────────────────────── */}
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-800 text-base">Feestdagen</h2>
-              <p className="text-xs text-gray-500 mt-0.5">
-                VAK-uren worden automatisch toegekend bij jaar-initialisatie. Boek een verlofdag via de kalender of het formulier hieronder.
-              </p>
-            </div>
-
-            <div className="p-5">
-              {holidayEvents.length === 0
-                ? <p className="text-xs text-gray-400">Geen feestdagen.</p>
-                : (
-                  <div className="space-y-1">
-                    {holidayEvents.map((h) => {
-                      const isExpired = h.status === 'EXPIRED';
-                      return (
-                        <div key={h.id}
-                          className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs border ${
-                            isExpired
-                              ? 'border-red-200 bg-red-50 opacity-60'
-                              : h.isRestDay
-                              ? 'border-amber-200 bg-amber-50'
-                              : 'border-gray-200 bg-gray-50'
-                          }`}>
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <Badge variant={isExpired ? 'gray' : h.type}>{h.type}</Badge>
-                            <span className="font-medium text-gray-700">{h.date}</span>
-                            <span className="text-gray-500 truncate">{h.label}</span>
-                            {h.isRestDay && <Badge variant="orange" size="xs">Rustdag</Badge>}
-                            {isExpired && <Badge variant="red" size="xs">Vervallen</Badge>}
-                          </div>
-                          <div className="flex items-center gap-2 ml-2 shrink-0">
-                            <span className="font-mono text-gray-400">+{fmtHours(h.type === 'GF' ? 3.2 : 6.4)}u</span>
-                            {h.vakBucketId && !isExpired && (
-                              <span className="text-green-600 text-xs">✓ Toegekend</span>
-                            )}
-                            <button className="btn-sm-ghost" onClick={() => store.removeHoliday(h.id)}>✕</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-            </div>
-
-            {/* Add manual VF */}
-            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Manuele feestdag toevoegen (bv. VF)</h3>
-              <div className="flex flex-wrap gap-3 items-end">
-                <div>
-                  <label className="label">Datum</label>
-                  <input type="date" className="input" value={hDate} onChange={(e) => setHDate(e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Type</label>
-                  <select className="input" value={hType} onChange={(e) => setHType(e.target.value as HolidayType)}>
-                    {(Object.keys(HOLIDAY_LABELS) as HolidayType[]).map((t) => (
-                      <option key={t} value={t}>{t} – {HOLIDAY_LABELS[t]}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Omschrijving</label>
-                  <input type="text" className="input" placeholder={HOLIDAY_LABELS[hType]}
-                    value={hLabel} onChange={(e) => setHLabel(e.target.value)} />
-                </div>
-                <button className="btn-primary" onClick={handleAddHoliday}>Toevoegen</button>
+            <button
+              className="w-full px-5 py-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              onClick={() => setShowHolidays((v) => !v)}
+            >
+              <div className="text-left">
+                <h2 className="font-semibold text-gray-800 text-base">Feestdagen</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  VAK-uren worden automatisch toegekend bij jaar-initialisatie. Boek een verlofdag via de kalender of het formulier hieronder.
+                </p>
               </div>
-            </div>
-          </section>
+              <span className="text-gray-400 text-xs ml-4 shrink-0">{showHolidays ? '▲ Inklappen' : '▼ Uitklappen'}</span>
+            </button>
 
-          {/* ── Leave Requests ────────────────────────────────── */}
+            {showHolidays && (
+              <>
+                <div className="p-5">
+                  {holidayEvents.length === 0
+                    ? <p className="text-xs text-gray-400">Geen feestdagen.</p>
+                    : (
+                      <div className="space-y-1">
+                        {holidayEvents.map((h) => {
+                          const isExpired = h.status === 'EXPIRED';
+                          return (
+                            <div key={h.id}
+                              className={`flex items-center justify-between rounded-lg px-3 py-2 text-xs border ${
+                                isExpired
+                                  ? 'border-red-200 bg-red-50 opacity-60'
+                                  : h.isRestDay
+                                  ? 'border-amber-200 bg-amber-50'
+                                  : 'border-gray-200 bg-gray-50'
+                              }`}>
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Badge variant={isExpired ? 'gray' : h.type}>{h.type}</Badge>
+                                <span className="font-medium text-gray-700">{h.date}</span>
+                                <span className="text-gray-500 truncate">{h.label}</span>
+                                {h.isRestDay && <Badge variant="orange" size="xs">Rustdag</Badge>}
+                                {isExpired && <Badge variant="red" size="xs">Vervallen</Badge>}
+                              </div>
+                              <div className="flex items-center gap-2 ml-2 shrink-0">
+                                <span className="font-mono text-gray-400">+{fmtHours(h.type === 'GF' ? 3.2 : 6.4)}u</span>
+                                {h.vakBucketId && !isExpired && (
+                                  <span className="text-green-600 text-xs">✓ Toegekend</span>
+                                )}
+                                <button className="btn-sm-ghost" onClick={() => store.removeHoliday(h.id)}>✕</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                </div>
+
+                {/* Add manual VF */}
+                <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Manuele feestdag toevoegen (bv. VF)</h3>
+                  <div className="flex flex-wrap gap-3 items-end">
+                    <div>
+                      <label className="label">Datum</label>
+                      <input type="date" className="input" value={hDate} onChange={(e) => setHDate(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label">Type</label>
+                      <select className="input" value={hType} onChange={(e) => setHType(e.target.value as HolidayType)}>
+                        {(Object.keys(HOLIDAY_LABELS) as HolidayType[]).map((t) => (
+                          <option key={t} value={t}>{t} – {HOLIDAY_LABELS[t]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Omschrijving</label>
+                      <input type="text" className="input" placeholder={HOLIDAY_LABELS[hType]}
+                        value={hLabel} onChange={(e) => setHLabel(e.target.value)} />
+                    </div>
+                    <button className="btn-primary" onClick={handleAddHoliday}>Toevoegen</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="font-semibold text-gray-800 text-base">Verlofaanvraag</h2>

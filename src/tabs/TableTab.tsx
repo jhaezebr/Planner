@@ -290,33 +290,30 @@ export function TableTab() {
 
       {/* Ledger */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <button
-            className="flex items-center gap-2 hover:text-blue-600 transition-colors"
-            onClick={() => setShowLedger((v) => !v)}
-          >
-            <h3 className="font-semibold text-gray-700 text-sm">Transactieoverzicht</h3>
-            <span className="text-gray-400 text-xs">{showLedger ? '▲' : '▼'}</span>
-          </button>
-          {showLedger && (
-          <div className="flex gap-1">
-            {(['ALL', 'VAK', 'RV', 'EXPIRED'] as FilterType[]).map((f) => (
-              <button
-                key={f}
-                className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${filter === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-                onClick={() => setFilter(f)}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-          )}
-        </div>
+        <button
+          className="w-full px-5 py-3 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          onClick={() => setShowLedger((v) => !v)}
+        >
+          <h3 className="font-semibold text-gray-700 text-sm">Transactieoverzicht</h3>
+          <span className="text-gray-400 text-xs">{showLedger ? '▲ Inklappen' : '▼ Uitklappen'}</span>
+        </button>
         {showLedger && (
-          filtered.length === 0 ? (
-          <p className="px-5 py-8 text-center text-gray-400 text-sm">Geen transacties{settings.initialized ? '' : ' — initialiseer eerst een jaar'}.</p>
-        ) : (
-          <table className="w-full text-xs">
+          <>
+            <div className="px-5 py-2 border-b border-gray-100 flex justify-end gap-1">
+              {(['ALL', 'VAK', 'RV', 'EXPIRED'] as FilterType[]).map((f) => (
+                <button
+                  key={f}
+                  className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${filter === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
+                  onClick={() => setFilter(f)}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+            {filtered.length === 0 ? (
+              <p className="px-5 py-8 text-center text-gray-400 text-sm">Geen transacties{settings.initialized ? '' : ' — initialiseer eerst een jaar'}.</p>
+            ) : (
+              <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-50 text-gray-500 uppercase tracking-wide text-[10px]">
                 <th className="px-3 py-2 text-left">Datum</th>
@@ -354,7 +351,9 @@ export function TableTab() {
               ))}
             </tbody>
           </table>
-        ))}
+            )}
+          </>
+        )}
       </div>
 
       {/* ── Year-end summary ─────────────────────────────────── */}
