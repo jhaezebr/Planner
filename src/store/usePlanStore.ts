@@ -91,15 +91,14 @@ export const usePlanStore = create<PlanStore>()(
         // --- VAK STACK (ordered: expiring first, WV base last) ---
         const vakStack: VakBucket[] = [];
 
-        // 1. Carry-over VAK (expires Feb 28, capped at MAX_CARRY_VAK_HOURS)
+        // 1. Carry-over VAK (expires Feb 28, soft (not) capped at MAX_CARRY_VAK_HOURS)
         if (carryVakHours > 0) {
-          const capped = Math.min(carryVakHours, MAX_CARRY_VAK_HOURS);
           vakStack.push({
             id: genId(),
             label: `Overdracht VAK ${year - 1}`,
             type: 'CARRY_VAK',
-            hours: capped,
-            totalHours: capped,
+            hours: carryVakHours,
+            totalHours: carryVakHours,
             addedOn: `${year}-01-01`,
             expiresOn: `${year}-02-28`,
           });
@@ -120,14 +119,13 @@ export const usePlanStore = create<PlanStore>()(
         const rvTxs: RvTransaction[] = [];
         let rvBal = 0;
 
-        // Carry-over RV from previous year (capped at MAX_CARRY_RV_HOURS)
+        // Carry-over RV from previous year (soft (not) capped at MAX_CARRY_RV_HOURS)
         if (carryRvHours > 0) {
-          const capped = Math.min(carryRvHours, MAX_CARRY_RV_HOURS);
-          rvBal += capped;
+          rvBal += carryRvHours;
           rvTxs.push({
             id: genId(),
             date: `${year}-01-01`,
-            deltaHours: capped,
+            deltaHours: carryRvHours,
             label: `Overdracht RV ${year - 1}`,
             balance: rvBal,
           });
@@ -302,9 +300,9 @@ export const usePlanStore = create<PlanStore>()(
         }
 
         if (source === 'VAK') {
-          const total = vakTotal(state.vakStack);
+          const total = vakTotal(state.vakStack.filter((b) => b.addedOn <= date));
           if (total < hours) return `Onvoldoende VAK: ${total.toFixed(2)}u beschikbaar`;
-          const { newStack, consumed } = consumeVak(state.vakStack, hours);
+          const { newStack, consumed } = consumeVak(state.vakStack, hours, date);
           const entry: LeaveEntry = {
             id: genId(), date, hours, source: 'VAK',
             bucketsConsumed: consumed, rvHoursConsumed: 0, rvTransactionId: null, note,
@@ -317,9 +315,9 @@ export const usePlanStore = create<PlanStore>()(
         }
 
         // AUTO: try VAK first, then overflow to RV
-        const vakAvail = vakTotal(state.vakStack);
+        const vakAvail = vakTotal(state.vakStack.filter((b) => b.addedOn <= date));
         if (vakAvail >= hours) {
-          const { newStack, consumed } = consumeVak(state.vakStack, hours);
+          const { newStack, consumed } = consumeVak(state.vakStack, hours, date);
           const entry: LeaveEntry = {
             id: genId(), date, hours, source: 'AUTO',
             bucketsConsumed: consumed, rvHoursConsumed: 0, rvTransactionId: null, note,
@@ -337,7 +335,7 @@ export const usePlanStore = create<PlanStore>()(
           return `Onvoldoende saldo: VAK ${vakAvail.toFixed(2)}u + RV ${state.rvBalance.toFixed(2)}u < ${hours}u benodigd`;
         }
 
-        const { newStack, consumed } = consumeVak(state.vakStack, vakPart);
+        const { newStack, consumed } = consumeVak(state.vakStack, vakPart, date);
         const newBal = state.rvBalance - rvPart;
         const tx: RvTransaction = {
           id: genId(), date, deltaHours: -rvPart,
@@ -433,6 +431,7 @@ export const usePlanStore = create<PlanStore>()(
 function consumeVak(
   stack: VakBucket[],
   hours: number,
+  asOf: string,
 ): { newStack: VakBucket[]; consumed: BucketConsumption[] } {
   const sorted = sortVakStack(stack);
   const newStack = sorted.map((b) => ({ ...b }));
@@ -442,6 +441,8 @@ function consumeVak(
   for (const b of newStack) {
     if (remaining <= 0) break;
     if (b.hours <= 0) continue;
+    // Only consume buckets that have been earned by the leave date
+    if (b.addedOn > asOf) continue;
     const take = Math.min(b.hours, remaining);
     consumed.push({ bucketId: b.id, bucketLabel: b.label, hours: take });
     b.hours -= take;

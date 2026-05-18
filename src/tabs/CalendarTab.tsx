@@ -38,13 +38,19 @@ export function CalendarTab() {
   ];
 
   // Expiry warnings: only the exact expiry date, so each bucket gets exactly one ⏰ day
-  const expiryWarningDates = new Set<string>();
+  const expiryWarningDates = new Set<string>();   // buckets with hours > 0
+  const expiryDepletedDates = new Set<string>();  // buckets fully used up (hours = 0)
   const expiryWarningLabels = new Map<string, string[]>();
   for (const b of vakStack) {
     if (!b.expiresOn) continue;
-    expiryWarningDates.add(b.expiresOn);
     const existing = expiryWarningLabels.get(b.expiresOn) ?? [];
-    existing.push(`${b.label}: ${fmtHours(b.hours)}u`);
+    if (b.hours > 0) {
+      expiryWarningDates.add(b.expiresOn);
+      existing.push(`${b.label}: ${fmtHours(b.hours)}u`);
+    } else {
+      expiryDepletedDates.add(b.expiresOn);
+      existing.push(`${b.label}: volledig opgebruikt`);
+    }
     expiryWarningLabels.set(b.expiresOn, existing);
   }
 
@@ -138,6 +144,7 @@ export function CalendarTab() {
           const hasLeave = leaves.length > 0;
           const hasRvLeave = leaves.some((l) => l.source === 'RV' || l.rvHoursConsumed > 0);
           const hasExpWarning = expiryWarningDates.has(dateStr);
+          const hasExpDepleted = !hasExpWarning && expiryDepletedDates.has(dateStr);
           const isToday = isSameDay(d, today);
           const isClickable = settings.initialized && !isWknd && !isRest;
 
@@ -182,11 +189,15 @@ export function CalendarTab() {
                   </Badge>
                 </div>
               ))}
-              {hasExpWarning && !hasLeave && (
+              {(hasExpWarning || hasExpDepleted) && !hasLeave && (
                 <span
-                  className="text-[9px] text-amber-600 block mt-0.5 cursor-help"
+                  className={`text-[9px] block mt-0.5 cursor-help ${
+                    hasExpDepleted
+                      ? 'text-gray-400 line-through'
+                      : 'text-amber-600'
+                  }`}
                   title={expiryWarningLabels.get(dateStr)?.join('\n')}
-                >⏰ verval</span>
+                >{hasExpDepleted ? '⏰ verval' : '⏰ verval'}</span>
               )}
             </div>
           );

@@ -273,6 +273,36 @@ describe('addLeave', () => {
       expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore - 8);
     });
 
+    it('does NOT consume holiday buckets whose addedOn is after the leave date', () => {
+      initClean();
+      // Book leave in January — November holiday buckets must not be touched
+      const novBucketsBefore = s().vakStack.filter(
+        (b) => b.addedOn >= `${YEAR}-11-01`,
+      );
+      s().addLeave(`${YEAR}-01-15`, 8, 'VAK');
+      const novBucketsAfter = s().vakStack.filter(
+        (b) => b.addedOn >= `${YEAR}-11-01`,
+      );
+      // Every November bucket must still have its original hours intact
+      for (const before of novBucketsBefore) {
+        const after = novBucketsAfter.find((b) => b.id === before.id)!;
+        expect(after.hours).toBeCloseTo(before.hours);
+      }
+    });
+
+    it('only counts buckets available on the leave date towards the available total', () => {
+      initClean(0, 0); // no carry, no WV top-up
+      // All VAK comes from holiday buckets; book a date in Jan before most are available
+      // Jan 1 (Nieuwjaar) is the only holiday on/before Jan 15 → 6.4h available
+      const availJan15 = s().vakStack
+        .filter((b) => b.addedOn <= `${YEAR}-01-15`)
+        .reduce((sum, b) => sum + b.hours, 0);
+      // Trying to book more than what's available on that date should fail
+      const err = s().addLeave(`${YEAR}-01-15`, availJan15 + 1, 'VAK');
+      expect(typeof err).toBe('string');
+      expect(err).toContain('Onvoldoende VAK');
+    });
+
     it('returns null (success) when VAK is sufficient', () => {
       initClean();
       const result = s().addLeave(`${YEAR}-06-15`, 8, 'VAK');
@@ -370,21 +400,30 @@ describe('addLeave', () => {
 
     it('overflows to RV when VAK is exhausted mid-booking', () => {
       initClean();
-      // Drain VAK down to 3h remaining
-      const allVak = vakTotal(s().vakStack);
-      s().addLeave(`${YEAR}-06-01`, allVak - 3, 'VAK');
-      expect(vakTotal(s().vakStack)).toBeCloseTo(3);
+      // Only drain VAK available on Jun 1 (addedOn <= Jun 1), leave 3h remaining
+      const leaveDate = `${YEAR}-06-01`;
+      const availableVak = s().vakStack
+        .filter((b) => b.addedOn <= leaveDate)
+        .reduce((sum, b) => sum + b.hours, 0);
+      s().addLeave(leaveDate, availableVak - 3, 'VAK');
 
       const rvBefore = s().rvBalance;
       s().addLeave(`${YEAR}-06-15`, 8, 'AUTO'); // 3h from VAK + 5h from RV
-      expect(vakTotal(s().vakStack)).toBeCloseTo(0);
+      // All available-on-Jun-15 VAK buckets are now empty
+      const availableAfter = s().vakStack
+        .filter((b) => b.addedOn <= `${YEAR}-06-15`)
+        .reduce((sum, b) => sum + b.hours, 0);
+      expect(availableAfter).toBeCloseTo(0);
       expect(s().rvBalance).toBeCloseTo(rvBefore - 5);
     });
 
     it('stores rvTransactionId when RV overflow occurs', () => {
       initClean();
-      const allVak = vakTotal(s().vakStack);
-      s().addLeave(`${YEAR}-06-01`, allVak - 3, 'VAK');
+      const leaveDate = `${YEAR}-06-01`;
+      const availableVak = s().vakStack
+        .filter((b) => b.addedOn <= leaveDate)
+        .reduce((sum, b) => sum + b.hours, 0);
+      s().addLeave(leaveDate, availableVak - 3, 'VAK');
       s().addLeave(`${YEAR}-06-15`, 8, 'AUTO');
       const leave = s().leaveEntries.find((l) => l.date === `${YEAR}-06-15`)!;
       expect(leave.rvTransactionId).not.toBeNull();
@@ -393,9 +432,12 @@ describe('addLeave', () => {
     it('returns an error when neither VAK nor RV can cover the request', () => {
       s().resetAll();
       s().initYear(YEAR, REST_DAY, 0, 0);
-      const allVak = vakTotal(s().vakStack);
+      const leaveDate = `${YEAR}-06-01`;
+      const availableVak = s().vakStack
+        .filter((b) => b.addedOn <= leaveDate)
+        .reduce((sum, b) => sum + b.hours, 0);
       const allRv = s().rvBalance;
-      s().addLeave(`${YEAR}-06-01`, allVak, 'VAK');
+      s().addLeave(leaveDate, availableVak, 'VAK');
       s().addLeave(`${YEAR}-06-02`, allRv, 'RV');
       const result = s().addLeave(`${YEAR}-06-15`, 8, 'AUTO');
       expect(typeof result).toBe('string');
