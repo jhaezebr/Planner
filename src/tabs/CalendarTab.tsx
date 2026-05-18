@@ -142,14 +142,14 @@ export function CalendarTab() {
           const isClickable = settings.initialized && !isWknd && !isRest;
 
           let cellClass = 'rounded-lg border p-1 min-h-[80px] text-xs transition-colors select-none ';
-          if (isWknd || isRest) {
-            cellClass += 'bg-gray-50 border-gray-200 ';
+          if (hasExpWarning) {
+            cellClass += 'bg-amber-50 border-amber-300 ';
           } else if (hasRvLeave) {
             cellClass += 'bg-cyan-50 border-cyan-300 ';
           } else if (hasLeave) {
             cellClass += 'bg-blue-50 border-blue-200 ';
-          } else if (hasExpWarning) {
-            cellClass += 'bg-amber-50 border-amber-300 ';
+          } else if (isWknd || isRest) {
+            cellClass += 'bg-gray-50 border-gray-200 ';
           } else {
             cellClass += 'bg-white border-gray-200 ';
           }
