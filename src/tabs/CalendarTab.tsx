@@ -40,11 +40,16 @@ export function CalendarTab() {
 
   // Expiry warnings: collect dates where a bucket expires within 7 days
   const expiryWarningDates = new Set<string>();
+  const expiryWarningLabels = new Map<string, string[]>();
   for (const b of vakStack) {
     if (!b.expiresOn) continue;
     const exp = parseISO(b.expiresOn);
     for (let i = 0; i < 7; i++) {
-      expiryWarningDates.add(format(addDays(exp, -i), 'yyyy-MM-dd'));
+      const d = format(addDays(exp, -i), 'yyyy-MM-dd');
+      expiryWarningDates.add(d);
+      const existing = expiryWarningLabels.get(d) ?? [];
+      existing.push(`${b.label} vervalt op ${b.expiresOn} (${fmtHours(b.hours)}u)`);
+      expiryWarningLabels.set(d, existing);
     }
   }
 
@@ -183,7 +188,10 @@ export function CalendarTab() {
                 </div>
               ))}
               {hasExpWarning && !hasLeave && (
-                <span className="text-[9px] text-amber-600 block mt-0.5">⏰ verval</span>
+                <span
+                  className="text-[9px] text-amber-600 block mt-0.5 cursor-help"
+                  title={expiryWarningLabels.get(dateStr)?.join('\n')}
+                >⏰ verval</span>
               )}
             </div>
           );
