@@ -3,12 +3,11 @@ import { InputTab } from './tabs/InputTab';
 import { CalendarTab } from './tabs/CalendarTab';
 import { TableTab } from './tabs/TableTab';
 
-type Tab = 'input' | 'calendar' | 'table';
+type Tab = 'input' | 'overview';
 
 const tabs: { id: Tab; label: string; icon: string }[] = [
   { id: 'input', label: 'Invoer', icon: '✏️' },
-  { id: 'calendar', label: 'Kalender', icon: '📅' },
-  { id: 'table', label: 'Overzicht', icon: '📊' },
+  { id: 'overview', label: 'Kalender & Overzicht', icon: '📅' },
 ];
 
 function App() {
@@ -42,8 +41,16 @@ function App() {
       </header>
       <main className="py-6">
         {activeTab === 'input' && <InputTab />}
-        {activeTab === 'calendar' && <CalendarTab />}
-        {activeTab === 'table' && <TableTab />}
+        {activeTab === 'overview' && (
+          <div className="flex gap-4 px-4 max-w-[1800px] mx-auto items-start">
+            <div className="w-[440px] flex-shrink-0">
+              <CalendarTab />
+            </div>
+            <div className="flex-1 min-w-0">
+              <TableTab />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

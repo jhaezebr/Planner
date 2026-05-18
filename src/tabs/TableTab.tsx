@@ -29,6 +29,8 @@ interface LedgerRow {
 export function TableTab() {
   const { settings, vakStack, rvBalance, rvTransactions, holidayEvents, leaveEntries, expiredBuckets } = usePlanStore();
   const [filter, setFilter] = useState<FilterType>('ALL');
+  const [showVakDetail, setShowVakDetail] = useState(false);
+  const [showLedger, setShowLedger] = useState(false);
 
   // Build a unified sorted ledger
   const rows: LedgerRow[] = [];
@@ -227,7 +229,7 @@ export function TableTab() {
   const rvLost = Math.max(0, rvBalance - MAX_CARRY_RV_HOURS);
 
   return (
-    <div className="p-4 max-w-6xl mx-auto">
+    <div className="p-4">
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
@@ -250,9 +252,14 @@ export function TableTab() {
       {/* VAK bucket breakdown */}
       {vakStack.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-x-auto">
-          <div className="px-5 py-3 border-b border-gray-100">
+          <button
+            className="w-full px-5 py-3 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            onClick={() => setShowVakDetail((v) => !v)}
+          >
             <h3 className="font-semibold text-gray-700 text-sm">VAK stack detail (cascade volgorde)</h3>
-          </div>
+            <span className="text-gray-400 text-xs">{showVakDetail ? '▲ Inklappen' : '▼ Uitklappen'}</span>
+          </button>
+          {showVakDetail && (
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-50 text-gray-500 uppercase tracking-wide">
@@ -277,13 +284,21 @@ export function TableTab() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       )}
 
       {/* Ledger */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700 text-sm">Transactieoverzicht</h3>
+          <button
+            className="flex items-center gap-2 hover:text-blue-600 transition-colors"
+            onClick={() => setShowLedger((v) => !v)}
+          >
+            <h3 className="font-semibold text-gray-700 text-sm">Transactieoverzicht</h3>
+            <span className="text-gray-400 text-xs">{showLedger ? '▲' : '▼'}</span>
+          </button>
+          {showLedger && (
           <div className="flex gap-1">
             {(['ALL', 'VAK', 'RV', 'EXPIRED'] as FilterType[]).map((f) => (
               <button
@@ -295,8 +310,10 @@ export function TableTab() {
               </button>
             ))}
           </div>
+          )}
         </div>
-        {filtered.length === 0 ? (
+        {showLedger && (
+          filtered.length === 0 ? (
           <p className="px-5 py-8 text-center text-gray-400 text-sm">Geen transacties{settings.initialized ? '' : ' — initialiseer eerst een jaar'}.</p>
         ) : (
           <table className="w-full text-xs">
@@ -337,7 +354,7 @@ export function TableTab() {
               ))}
             </tbody>
           </table>
-        )}
+        ))}
       </div>
 
       {/* ── Year-end summary ─────────────────────────────────── */}

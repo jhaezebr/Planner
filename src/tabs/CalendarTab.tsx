@@ -92,7 +92,7 @@ export function CalendarTab() {
   };
 
   return (
-    <div className="p-4 max-w-5xl mx-auto">
+    <div className="p-4">
       {/* Navigation */}
       <div className="flex items-center justify-between mb-4">
         <button className="btn-secondary" onClick={() => setCurrent(subMonths(current, 1))}>‹ Vorige</button>
