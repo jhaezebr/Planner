@@ -70,9 +70,9 @@ export function TableTab() {
     }
   }
 
-  // Forecast expiry rows: holiday buckets in vakStack with remaining hours and an expiry date
+  // Forecast expiry rows: holiday buckets + CARRY_VAK in vakStack with remaining hours and an expiry date
   for (const b of vakStack) {
-    if (b.expiresOn && b.hours > 0 && !['WV', 'CARRY_VAK', 'CARRY_RV'].includes(b.type)) {
+    if (b.expiresOn && b.hours > 0 && b.type !== 'WV') {
       allEvents.push({ date: b.expiresOn, kind: 'HOLIDAY_EXPIRY_FORECAST', payload: b });
     }
   }
