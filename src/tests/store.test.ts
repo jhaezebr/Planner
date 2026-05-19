@@ -378,6 +378,78 @@ describe('addLeave', () => {
       });
     });
 
+    describe('holiday-date bucket priority rule', () => {
+      // When a leave is booked on the same date as a holiday, the VAK bucket that
+      // belongs to that holiday must be consumed FIRST, before any other bucket in
+      // the cascade (including earlier-expiring carry-over buckets).
+
+      it('consumes the holiday bucket for the leave date first, before older carry-over buckets', () => {
+        // Give a large carry-over that would normally sort before the holiday buckets
+        // (carry expires Feb 28; Nieuwjaar bucket was addedOn Jan 1 with a Jun-ish expiry).
+        initClean(4 * VAK_PER_DAY, 0); // 25.6h CARRY_VAK expiring Feb 28
+        const carryBefore = s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours;
+
+        // The Nieuwjaar holiday is Jan 1 — booking leave on exactly that date.
+        const nieuwjaarBucket = s().vakStack.find((b) => b.addedOn === `${YEAR}-01-01`)!;
+        expect(nieuwjaarBucket).toBeDefined();
+        const nieuwjaarBefore = nieuwjaarBucket.hours; // 6.4h — used to assert the bucket is fully consumed
+        expect(nieuwjaarBefore).toBeCloseTo(VAK_PER_DAY);
+
+        // Book 6.4h (one full-day holiday) on Jan 1
+        s().addLeave(`${YEAR}-01-01`, VAK_PER_DAY, 'VAK');
+
+        // The Nieuwjaar bucket must be fully consumed (it is the holiday for that date)
+        expect(s().vakStack.find((b) => b.id === nieuwjaarBucket.id)?.hours ?? 0).toBeCloseTo(0);
+        // Carry-over must be completely untouched
+        expect(s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours).toBeCloseTo(carryBefore);
+
+      });
+
+      it('after the holiday bucket is exhausted, remaining hours come from the normal cascade', () => {
+        initClean(4 * VAK_PER_DAY, 0); // 25.6h CARRY_VAK
+        const carryBefore = s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours;
+
+        // Book 8h on Jan 1: 6.4h from Nieuwjaar bucket + 1.6h from next in cascade
+        s().addLeave(`${YEAR}-01-01`, 8, 'VAK');
+
+        // Nieuwjaar bucket fully consumed
+        expect(s().vakStack.find((b) => b.addedOn === `${YEAR}-01-01`)?.hours ?? 0).toBeCloseTo(0);
+        // Carry-over absorbed the 1.6h remainder (it sorts before WV due to earlier expiry)
+        expect(s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours).toBeCloseTo(carryBefore - (8 - VAK_PER_DAY));
+      });
+
+      it('bookings on non-holiday dates are unaffected (normal cascade order)', () => {
+        initClean(4 * VAK_PER_DAY, 0); // 25.6h CARRY_VAK expiring Feb 28
+        const carryBefore = s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours;
+
+        // Jan 15 is not a holiday.
+        // The Nieuwjaar bucket (addedOn Jan 1, expiry ~Feb 12) sorts before carry-over
+        // (expiry Feb 28) in normal cascade, so Nieuwjaar is consumed — carry is untouched.
+        const nieuwjaarBucket = s().vakStack.find((b) => b.addedOn === `${YEAR}-01-01`)!;
+        s().addLeave(`${YEAR}-01-15`, VAK_PER_DAY, 'VAK');
+
+        // Nieuwjaar consumed first (earliest expiry in normal cascade)
+        expect(s().vakStack.find((b) => b.id === nieuwjaarBucket.id)?.hours ?? 0).toBeCloseTo(0);
+        // Carry-over untouched (it was not prioritised, and wasn't needed)
+        expect(s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours).toBeCloseTo(carryBefore);
+      });
+
+      it('bookings on non-holiday dates are unaffected (normal cascade order with CARRY_VAK)', () => {
+        initClean(4 * VAK_PER_DAY, 0); // 25.6h CARRY_VAK expiring Feb 28
+        const carryBefore = s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours;
+
+        // Jan 15 is not a holiday.
+        s().addLeave(`${YEAR}-01-01`, VAK_PER_DAY, 'VAK');
+        s().addLeave(`${YEAR}-01-15`, VAK_PER_DAY, 'VAK');
+        
+        // Nieuwjaar consumed first (earliest expiry in normal cascade)
+        const nieuwjaarBucket = s().vakStack.find((b) => b.addedOn === `${YEAR}-01-01`)!;
+        expect(s().vakStack.find((b) => b.id === nieuwjaarBucket.id)?.hours ?? 0).toBeCloseTo(0);
+        // Carry-over untouched (it was not prioritised, and wasn't needed)
+        expect(s().vakStack.find((b) => b.type === 'CARRY_VAK')!.hours).toBeCloseTo(carryBefore-VAK_PER_DAY);
+      });
+    });
+
   it('consumes expiring buckets before the WV (no-expiry) bucket', () => {
     initClean(2 * VAK_PER_DAY, 0); // 12.8h carry + holiday buckets, all expiring before WV
     const wvBefore = s().vakStack.find((b) => b.type === 'WV')!.hours;

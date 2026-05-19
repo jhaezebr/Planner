@@ -302,7 +302,8 @@ export const usePlanStore = create<PlanStore>()(
         if (source === 'VAK') {
           const total = vakTotal(state.vakStack.filter((b) => b.addedOn <= date));
           if (total < hours) return `Onvoldoende VAK: ${total.toFixed(2)}u beschikbaar`;
-          const { newStack, consumed } = consumeVak(state.vakStack, hours, date);
+          const holidayBucketId = state.holidayEvents.find((h) => h.date === date && h.vakBucketId)?.vakBucketId;
+          const { newStack, consumed } = consumeVak(state.vakStack, hours, date, holidayBucketId);
           const entry: LeaveEntry = {
             id: genId(), date, hours, source: 'VAK',
             bucketsConsumed: consumed, rvHoursConsumed: 0, rvTransactionId: null, note,
@@ -316,8 +317,9 @@ export const usePlanStore = create<PlanStore>()(
 
         // AUTO: try VAK first, then overflow to RV
         const vakAvail = vakTotal(state.vakStack.filter((b) => b.addedOn <= date));
+        const holidayBucketIdAuto = state.holidayEvents.find((h) => h.date === date && h.vakBucketId)?.vakBucketId;
         if (vakAvail >= hours) {
-          const { newStack, consumed } = consumeVak(state.vakStack, hours, date);
+          const { newStack, consumed } = consumeVak(state.vakStack, hours, date, holidayBucketIdAuto);
           const entry: LeaveEntry = {
             id: genId(), date, hours, source: 'AUTO',
             bucketsConsumed: consumed, rvHoursConsumed: 0, rvTransactionId: null, note,
@@ -335,7 +337,7 @@ export const usePlanStore = create<PlanStore>()(
           return `Onvoldoende saldo: VAK ${vakAvail.toFixed(2)}u + RV ${state.rvBalance.toFixed(2)}u < ${hours}u benodigd`;
         }
 
-        const { newStack, consumed } = consumeVak(state.vakStack, vakPart, date);
+        const { newStack, consumed } = consumeVak(state.vakStack, vakPart, date, holidayBucketIdAuto);
         const newBal = state.rvBalance - rvPart;
         const tx: RvTransaction = {
           id: genId(), date, deltaHours: -rvPart,
@@ -435,8 +437,15 @@ function consumeVak(
   stack: VakBucket[],
   hours: number,
   asOf: string,
+  priorityBucketId?: string | null,
 ): { newStack: VakBucket[]; consumed: BucketConsumption[] } {
   const sorted = sortVakStack(stack);
+  // If a priority bucket is specified (the holiday bucket for the leave date),
+  // move it to the front so it is consumed first.
+  if (priorityBucketId) {
+    const idx = sorted.findIndex((b) => b.id === priorityBucketId);
+    if (idx > 0) sorted.unshift(...sorted.splice(idx, 1));
+  }
   const newStack = sorted.map((b) => ({ ...b }));
   const consumed: BucketConsumption[] = [];
   let remaining = hours;
@@ -449,7 +458,8 @@ function consumeVak(
     // Holiday-type buckets represent exactly one public holiday day and must be
     // consumed in full. If only a partial amount would be taken, skip this bucket
     // and let WV (which sorts last) absorb the remainder instead.
-    if (HOLIDAY_BUCKET_TYPES.has(b.type) && b.hours > remaining) continue;
+    // Exception: the priority bucket (holiday for this exact date) may be consumed partially.
+    if (HOLIDAY_BUCKET_TYPES.has(b.type) && b.hours > remaining && b.id !== priorityBucketId) continue;
     const take = Math.min(b.hours, remaining);
     consumed.push({ bucketId: b.id, bucketLabel: b.label, hours: take });
     b.hours -= take;
