@@ -483,10 +483,10 @@ describe('Carry-over cap vs CSV reality', () => {
     expect(csvCarry).toBeGreaterThan(ourCapHours);
   });
 
-  it('our store caps carry-over at 6 × VAK_PER_DAY = 38.4h regardless of input', () => {
-    s().initYear(2026, 3, 999, 0); // 999h requested → capped at 38.4h
+  it('store accepts carry-over as-is (no hard cap \u2014 cap removed per user intent)', () => {
+    s().initYear(2026, 3, 999, 0); // 999h requested \u2014 stored as-is
     const carry = s().vakStack.find((b) => b.type === 'CARRY_VAK')!;
-    expect(carry.hours).toBeCloseTo(6 * VAK_PER_DAY); // 38.4h
+    expect(carry.hours).toBeCloseTo(999);
   });
 
   /**

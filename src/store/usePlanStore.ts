@@ -428,6 +428,9 @@ export const usePlanStore = create<PlanStore>()(
 );
 
 // Helper: consume `hours` from VAK stack (nearest expiry first), returns new stack + consumption log
+/** Holiday bucket types — each represents exactly one public holiday day and must be consumed whole. */
+const HOLIDAY_BUCKET_TYPES: ReadonlySet<string> = new Set(['OF', 'DF', 'RF', 'VF', 'GF']);
+
 function consumeVak(
   stack: VakBucket[],
   hours: number,
@@ -443,6 +446,10 @@ function consumeVak(
     if (b.hours <= 0) continue;
     // Only consume buckets that have been earned by the leave date
     if (b.addedOn > asOf) continue;
+    // Holiday-type buckets represent exactly one public holiday day and must be
+    // consumed in full. If only a partial amount would be taken, skip this bucket
+    // and let WV (which sorts last) absorb the remainder instead.
+    if (HOLIDAY_BUCKET_TYPES.has(b.type) && b.hours > remaining) continue;
     const take = Math.min(b.hours, remaining);
     consumed.push({ bucketId: b.id, bucketLabel: b.label, hours: take });
     b.hours -= take;

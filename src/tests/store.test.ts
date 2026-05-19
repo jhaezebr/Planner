@@ -59,10 +59,10 @@ describe('initYear', () => {
     expect(carry!.expiresOn).toBe(`${YEAR}-02-28`);
   });
 
-  it('caps carry-over VAK at 38.4h even if more is provided', () => {
-    initClean(999, 0); // 999h requested, only 38.4h allowed
-    const carry = s().vakStack.find((b) => b.type === 'CARRY_VAK');
-    expect(carry!.hours).toBeCloseTo(6 * VAK_PER_DAY); // 38.4h
+  it('stores carry-over VAK as-is (no hard cap enforced)', () => {
+    initClean(999, 0); // 999h requested
+    const carry = s().vakStack.find((b) => b.type === 'CARRY_VAK')!;
+    expect(carry.hours).toBeCloseTo(999);
   });
 
   it('does NOT add carry-over VAK to the stack when hours = 0', () => {
@@ -79,10 +79,9 @@ describe('initYear', () => {
     expect(s().rvBalance).toBeCloseTo(20 + 4 * QUARTERLY_RV);
   });
 
-  it('caps carry-over RV at 24h', () => {
-    initClean(0, 50); // 50h requested, only 24h allowed
-    // 24h carry + 96h quarterly = 120h
-    expect(s().rvBalance).toBeCloseTo(24 + 4 * QUARTERLY_RV);
+  it('stores carry-over RV as-is (no hard cap enforced)', () => {
+    initClean(0, 50); // 50h requested
+    expect(s().rvBalance).toBeCloseTo(50 + 4 * QUARTERLY_RV);
   });
 
   it('adds 4 quarterly RV top-ups of 24h each (96h total)', () => {
@@ -321,6 +320,62 @@ describe('addLeave', () => {
       const rvBefore = s().rvBalance;
       s().addLeave(`${YEAR}-06-15`, 8, 'VAK');
       expect(s().rvBalance).toBeCloseTo(rvBefore);
+    });
+
+    describe('holiday bucket whole-or-nothing rule', () => {
+      // Scenario: booking 8h leave consumes 6.4h from the soonest-expiring holiday,
+      // leaving 1.6h still needed. That 1.6h must come from WV, NOT from the next
+      // holiday bucket (which would partially deplete it and cause unexpected expiry loss).
+      //
+      // Setup: expire past buckets so only Dag v/d Arbeid (May 1, addedOn May 1) and
+      // Hemelvaart (May 14, addedOn May 14) are available when booking on May 19.
+
+      it('does not partially consume a holiday bucket — remainder comes from WV', () => {
+        initClean();
+        s().expireBuckets(`${YEAR}-05-18`); // removes Nieuwjaar + Paasmaandag
+
+        const hemelvaart = s().vakStack.find((b) => b.addedOn === `${YEAR}-05-14`)!;
+        expect(hemelvaart).toBeDefined();
+        const wvBefore = s().vakStack.find((b) => b.type === 'WV')!.hours;
+
+        // Book 8h on May 19: Dag v/d Arbeid (6.4h) should be taken in full,
+        // the remaining 1.6h should come from WV — not from Hemelvaart.
+        s().addLeave(`${YEAR}-05-19`, 8, 'VAK');
+
+        // Hemelvaart must be completely untouched
+        expect(s().vakStack.find((b) => b.id === hemelvaart.id)!.hours).toBeCloseTo(VAK_PER_DAY);
+        // WV absorbed exactly the 1.6h gap (8h − 6.4h)
+        expect(s().vakStack.find((b) => b.type === 'WV')!.hours).toBeCloseTo(wvBefore - (8 - VAK_PER_DAY));
+      });
+
+      it('second booking also consumes next holiday bucket in full + WV for remainder', () => {
+        initClean();
+        s().expireBuckets(`${YEAR}-05-18`);
+        const wvBefore = s().vakStack.find((b) => b.type === 'WV')!.hours;
+
+        s().addLeave(`${YEAR}-05-19`, 8, 'VAK'); // Dag v/d Arbeid (6.4h) + WV (1.6h)
+        s().addLeave(`${YEAR}-05-21`, 8, 'VAK'); // Hemelvaart (6.4h) + WV (1.6h)
+
+        // Both holiday buckets fully depleted
+        expect(s().vakStack.find((b) => b.addedOn === `${YEAR}-05-01`)?.hours ?? 0).toBeCloseTo(0);
+        expect(s().vakStack.find((b) => b.addedOn === `${YEAR}-05-14`)?.hours ?? 0).toBeCloseTo(0);
+        // WV used for two 1.6h gaps: 2 × (8 − 6.4) = 3.2h
+        expect(s().vakStack.find((b) => b.type === 'WV')!.hours).toBeCloseTo(wvBefore - 2 * (8 - VAK_PER_DAY));
+      });
+
+      it('holiday bucket has exactly 0h remaining after its expiry date — nothing extra expires', () => {
+        initClean();
+        s().expireBuckets(`${YEAR}-05-18`);
+
+        // Use Dag v/d Arbeid fully via a leave booking
+        s().addLeave(`${YEAR}-05-19`, 8, 'VAK');
+
+        // Now expire Dag v/d Arbeid (Jun 12): bucket is already at 0h, so no hours are lost
+        s().expireBuckets(`${YEAR}-06-12`);
+        const dagArbeidExpired = s().expiredBuckets.find((b) => b.addedOn === `${YEAR}-05-01`);
+        // Either removed from stack with 0h, or not added to expiredBuckets at all
+        expect(dagArbeidExpired?.hours ?? 0).toBeCloseTo(0);
+      });
     });
 
   it('consumes expiring buckets before the WV (no-expiry) bucket', () => {
