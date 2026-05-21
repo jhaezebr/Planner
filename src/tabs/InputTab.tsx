@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { usePlanStore } from '../store/usePlanStore';
-import { DAY_NAMES, HOLIDAY_LABELS, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS, fmtHours, vakTotal, VAK_PER_DAY } from '../utils/holidays';
+import { DAY_NAMES, HOLIDAY_LABELS, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS, fmtHours, vakTotal, VAK_PER_DAY, fetchVariableHolidayDates } from '../utils/holidays';
 import type { HolidayType, LeaveSource } from '../types';
 import { Badge } from '../components/Badge';
 import { format } from 'date-fns';
@@ -25,12 +25,18 @@ export function InputTab() {
   const [lHours, setLHours] = useState(8);
   const [lMinutes, setLMinutes] = useState(0);
   const [lSource, setLSource] = useState<LeaveSource>('AUTO');
-  const [lNote, setLNote] = useState('');
-  const [lError, setLError] = useState<string | null>(null);
+  const [lNote, setLNote] = useState('');  const [lError, setLError] = useState<string | null>(null);
   const [showHolidays, setShowHolidays] = useState(false);
+  const [initLoading, setInitLoading] = useState(false);
 
-  const handleInit = () => {
-    store.initYear(setupYear, setupRestDay, carryVak, carryRv);
+  const handleInit = async () => {
+    setInitLoading(true);
+    try {
+      const variableDates = await fetchVariableHolidayDates(setupYear);
+      store.initYear(setupYear, setupRestDay, carryVak, carryRv, variableDates);
+    } finally {
+      setInitLoading(false);
+    }
   };
 
   const handleAddHoliday = () => {
@@ -97,8 +103,11 @@ export function InputTab() {
           <button
             className="btn-primary"
             onClick={handleInit}
+            disabled={initLoading}
           >
-            {settings.initialized ? '↺ Herinitialiseer jaar' : '▶ Initialiseer jaar'}
+            {initLoading
+              ? '⏳ Feestdagen ophalen…'
+              : settings.initialized ? '↺ Herinitialiseer jaar' : '▶ Initialiseer jaar'}
           </button>
           {settings.initialized && (
             <span className="ml-3 text-xs text-amber-600">⚠ Herinitialiseren wist alle verlofboekingen!</span>

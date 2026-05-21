@@ -26,6 +26,7 @@ import {
   MAX_CARRY_RV_HOURS,
   MAX_CARRY_VAK_HOURS,
 } from '../utils/holidays';
+import type { VariableHolidayDates } from '../utils/holidays';
 
 function genId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -55,6 +56,7 @@ interface PlanStore extends AppState {
     restDay: number,
     carryVakHours: number,
     carryRvHours: number,
+    variableDates?: VariableHolidayDates,
   ) => void;
   updateSettings: (s: Partial<AppSettings>) => void;
 
@@ -85,7 +87,7 @@ export const usePlanStore = create<PlanStore>()(
       updateSettings: (s) =>
         set((state) => ({ settings: { ...state.settings, ...s } })),
 
-      initYear: (year, restDay, carryVakHours, carryRvHours) => {
+      initYear: (year, restDay, carryVakHours, carryRvHours, variableDates?) => {
         const wv = HOURS_PER_DAY * WORK_PCT * 26; // 166.4h base WV
 
         // --- VAK STACK (ordered: expiring first, WV base last) ---
@@ -144,7 +146,7 @@ export const usePlanStore = create<PlanStore>()(
         }
 
         // --- HOLIDAYS: auto-earn VAK buckets at year start ---
-        const rawHolidays = generateHolidays(year, restDay);
+        const rawHolidays = generateHolidays(year, restDay, variableDates);
         const holidayEvents: HolidayEvent[] = [];
 
         for (const h of rawHolidays) {
