@@ -120,7 +120,7 @@ export function InputTab() {
       ) : (
         <>
           {/* ── VAK & RV Summary ─────────────────────────────── */}
-          <section className="grid grid-cols-2 gap-4">
+          {/* <section className="grid grid-cols-2 gap-4">
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
               <p className="text-xs text-blue-600 font-medium uppercase tracking-wide">VAK saldo</p>
               <p className="text-2xl font-bold text-blue-800 mt-1">{fmtHours(vakTotal(vakStack))} u</p>
@@ -139,10 +139,10 @@ export function InputTab() {
               <p className="text-xs text-cyan-600 mt-1">Kwartaaltoewijzingen: 4 × 19.2u = 76.8u/jaar (80%)</p>
               <p className="text-xs text-cyan-600">Tewerkstelling: 80% · Werkdag: 8u</p>
             </div>
-          </section>
+          </section> */}
 
           {/* ── Feestdagen ───────────────────────────────────── */}
-          <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          {/* <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <button
               className="w-full px-5 py-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
               onClick={() => setShowHolidays((v) => !v)}
@@ -194,8 +194,9 @@ export function InputTab() {
                       </div>
                     )}
                 </div>
-
+                */}
                 {/* Add manual VF */}
+                {/*
                 <div className="px-5 pb-5 border-t border-gray-100 pt-4">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">Manuele feestdag toevoegen (bv. VF)</h3>
                   <div className="flex flex-wrap gap-3 items-end">
@@ -221,10 +222,10 @@ export function InputTab() {
                 </div>
               </>
             )}
-          </section>
+          </section> */}
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
             <div className="px-5 py-4 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-800 text-base">Verlofaanvraag</h2>
+              <h2 className="font-semibold text-gray-800 text-base">Manuele Verlofinvoer</h2>
               <p className="text-xs text-gray-500 mt-0.5">1 werkdag = 8u · Verdient {fmtHours(VAK_PER_DAY)}u VAK per feestdag (8u × 80%)</p>
             </div>
             <div className="p-5 flex flex-wrap gap-3 items-end">
@@ -298,7 +299,7 @@ export function InputTab() {
           )} */}
 
           {/* ── Expire Buckets ────────────────────────────────── */}
-          <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          {/* <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h2 className="font-semibold text-gray-800 text-base mb-3">Onderhoud</h2>
             <div className="flex flex-wrap gap-3 items-end">
               <div>
@@ -316,7 +317,7 @@ export function InputTab() {
                 if (confirm('Weet je zeker dat je alles wilt wissen?')) store.resetAll();
               }}>Reset alles</button>
             </div>
-          </section>
+          </section> */}
 
           {/* ── Export / Import ───────────────────────────────── */}
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
