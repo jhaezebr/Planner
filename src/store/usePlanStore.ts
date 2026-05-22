@@ -7,6 +7,7 @@ import type {
   VakBucket,
   HolidayEvent,
   HolidayType,
+  BucketType,
   LeaveEntry,
   LeaveSource,
   RvTransaction,
@@ -61,6 +62,7 @@ interface PlanStore extends AppState {
   markHolidayTaken: (holidayId: string) => void;
   markHolidayExpired: (holidayId: string) => void;
   addManualHoliday: (date: string, type: HolidayType, label: string) => void;
+  addManualVakBucket: (date: string, type: BucketType, label: string, hours: number, expiresOn: string | null) => void;
   removeHoliday: (holidayId: string) => void;
 
   // Leave
@@ -250,6 +252,19 @@ export const usePlanStore = create<PlanStore>()(
             a.date.localeCompare(b.date),
           ),
         }));
+      },
+
+      addManualVakBucket: (date, type, label, hours, expiresOn) => {
+        const bucket: VakBucket = {
+          id: genId(),
+          label: label || `${type} (${date})`,
+          type,
+          hours,
+          totalHours: hours,
+          addedOn: date,
+          expiresOn,
+        };
+        set((s) => ({ vakStack: sortVakStack([...s.vakStack, bucket]) }));
       },
 
       removeHoliday: (holidayId) => {

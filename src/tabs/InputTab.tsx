@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { usePlanStore } from '../store/usePlanStore';
 import { DAY_NAMES, HOLIDAY_LABELS, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS, fmtHours, vakTotal, VAK_PER_DAY, fetchVariableHolidayDates } from '../utils/holidays';
-import type { HolidayType, LeaveSource } from '../types';
+import type { HolidayType, BucketType, LeaveSource } from '../types';
 import { Badge } from '../components/Badge';
-import { format } from 'date-fns';
+import { format, addWeeks, parseISO } from 'date-fns';
 
 export function InputTab() {
   const store = usePlanStore();
@@ -15,18 +15,39 @@ export function InputTab() {
   const [carryVak, setCarryVak] = useState(0);
   const [carryRv, setCarryRv] = useState(0);
 
-  // Manual holiday form
-  const [hDate, setHDate] = useState('');
-  const [hType, setHType] = useState<HolidayType>('VF');
-  const [hLabel, setHLabel] = useState('');
-
   // Leave form
   const [lDate, setLDate] = useState('');
   const [lHours, setLHours] = useState(8);
   const [lMinutes, setLMinutes] = useState(0);
   const [lSource, setLSource] = useState<LeaveSource>('AUTO');
   const [lNote, setLNote] = useState('');  const [lError, setLError] = useState<string | null>(null);
-  const [showHolidays, setShowHolidays] = useState(false);
+  // Manual VAK bucket form
+  const [mDate, setMDate] = useState('');
+  const [mExpiry, setMExpiry] = useState('');
+  const [mHours, setMHours] = useState(Math.floor(VAK_PER_DAY));
+  const [mMinutes, setMMinutes] = useState(Math.round((VAK_PER_DAY % 1) * 60));
+  const [mType, setMType] = useState<BucketType>('VF');
+  const [mLabel, setMLabel] = useState('');
+  const [mError, setMError] = useState<string | null>(null);
+
+  const handleMDateChange = (val: string) => {
+    setMDate(val);
+    setMExpiry(val ? format(addWeeks(parseISO(val), 6), 'yyyy-MM-dd') : '');
+  };
+
+  const handleAddVakBucket = () => {
+    setMError(null);
+    if (!mDate) { setMError('Selecteer een datum'); return; }
+    const h = mHours + mMinutes / 60;
+    if (h <= 0) { setMError('Ongeldige uren'); return; }
+    store.addManualVakBucket(mDate, mType, mLabel || `${mType} (${mDate})`, h, mExpiry || null);
+    setMDate('');
+    setMExpiry('');
+    setMHours(Math.floor(VAK_PER_DAY));
+    setMMinutes(Math.round((VAK_PER_DAY % 1) * 60));
+    setMLabel('');
+  };
+
   const [initLoading, setInitLoading] = useState(false);
 
   const handleInit = async () => {
@@ -37,13 +58,6 @@ export function InputTab() {
     } finally {
       setInitLoading(false);
     }
-  };
-
-  const handleAddHoliday = () => {
-    if (!hDate) return;
-    store.addManualHoliday(hDate, hType, hLabel || HOLIDAY_LABELS[hType]);
-    setHDate('');
-    setHLabel('');
   };
 
   const handleAddLeave = () => {
@@ -240,9 +254,8 @@ export function InputTab() {
               </div>
               <div>
                 <label className="label">Minuten</label>
-                <select className="input" value={lMinutes} onChange={(e) => setLMinutes(Number(e.target.value))}>
-                  {[0, 15, 30, 45].map((m) => <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>)}
-                </select>
+                <input type="number" className="input w-20" min={0} max={59} value={lMinutes}
+                  onChange={(e) => setLMinutes(Number(e.target.value))} />
               </div>
               <div>
                 <label className="label">Bron</label>
@@ -259,6 +272,48 @@ export function InputTab() {
               <button className="btn-primary" onClick={handleAddLeave}>Boeken</button>
             </div>
             {lError && <p className="px-5 pb-3 text-sm text-red-600">⚠ {lError}</p>}
+          </section>
+
+          {/* ── Manuele Feestdaginvoer ───────────────────────── */}
+          <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-800 text-base">Manuele Feestdaginvoer</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Voeg manueel een VAK-bucket toe voor een feestdag of speciale toekenning.</p>
+            </div>
+            <div className="p-5 flex flex-wrap gap-3 items-end">
+              <div>
+                <label className="label">Datum</label>
+                <input type="date" className="input" value={mDate} onChange={(e) => handleMDateChange(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Vervaldatum</label>
+                <input type="date" className="input" value={mExpiry} onChange={(e) => setMExpiry(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Uren</label>
+                <input type="number" className="input w-20" min={0} max={24} value={mHours}
+                  onChange={(e) => setMHours(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Minuten</label>
+                <input type="number" className="input w-20" min={0} max={59} value={mMinutes}
+                  onChange={(e) => setMMinutes(Number(e.target.value))} />
+              </div>
+              <div>
+                <label className="label">Type VAK</label>
+                <select className="input" value={mType} onChange={(e) => setMType(e.target.value as BucketType)}>
+                  {(['VF', 'OF', 'DF', 'RF', 'GF', 'WV'] as BucketType[]).map((t) => (
+                    <option key={t} value={t}>{t}{HOLIDAY_LABELS[t as HolidayType] ? ` – ${HOLIDAY_LABELS[t as HolidayType]}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1 min-w-[150px]">
+                <label className="label">Omschrijving</label>
+                <input type="text" className="input" value={mLabel} placeholder={`${mType} (${mDate || 'datum'})`} onChange={(e) => setMLabel(e.target.value)} />
+              </div>
+              <button className="btn-primary" onClick={handleAddVakBucket}>Toevoegen</button>
+            </div>
+            {mError && <p className="px-5 pb-3 text-sm text-red-600">⚠ {mError}</p>}
           </section>
 
           {/* ── Booked Leave List ─────────────────────────────── */}
