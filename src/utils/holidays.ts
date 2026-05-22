@@ -117,7 +117,7 @@ export function generateHolidays(
     make(`${year}-07-11`, 'DF', 'Feest van de Vlaamse Gemeenschap'),
     make(`${year}-07-21`, 'OF', 'Nationale feestdag'),   // Belgian National Day (not Jul 14)
     make(`${year}-07-15`, 'GF', 'Gentse feesten (halve dag 1)'),
-    make(`${year}-07-16`, 'GF', 'Gentse feesten (halve dag 2)'),
+    make(`${year}-07-15`, 'GF', 'Gentse feesten (halve dag 2)'),
     make(`${year}-08-15`, 'OF', 'O.L.V. Hemelvaart'),
     make(`${year}-11-01`, 'OF', 'Allerheiligen'),
     make(`${year}-11-02`, 'RF', 'Allerzielen'),

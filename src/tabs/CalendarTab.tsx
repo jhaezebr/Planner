@@ -177,7 +177,7 @@ export function CalendarTab() {
               {holidays.map((h) => (
                 <div key={h.id} className="mb-0.5">
                   <Badge variant={HOLIDAY_VARIANT[h.type]} size="xs">
-                    {h.type} {h.status === 'EXPIRED' ? '✕' : h.status === 'TAKEN' ? '✓' : ''}
+                    {h.type}
                   </Badge>
                   <span className="block text-[9px] text-gray-500 leading-tight truncate">{h.label}</span>
                 </div>

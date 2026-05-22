@@ -22,9 +22,6 @@ import {
   WORK_PCT,
   HOURS_PER_DAY,
   QUARTERLY_RV,
-  VAK_PER_DAY,
-  MAX_CARRY_RV_HOURS,
-  MAX_CARRY_VAK_HOURS,
 } from '../utils/holidays';
 import type { VariableHolidayDates } from '../utils/holidays';
 

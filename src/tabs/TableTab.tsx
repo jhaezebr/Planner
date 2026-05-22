@@ -399,7 +399,7 @@ export function TableTab() {
 
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Huidig saldo</span>
-                <span className="font-mono font-bold text-blue-700">{fmtHours(currentVak)} u</span>
+                <span className="font-mono font-bold text-blue-700">{fmtHours(currentVak)} u <span className="font-normal text-blue-400 text-xs">{fmtDays(currentVak)}</span></span>
               </div>
 
               {vakExpiringEOY.length > 0 && (
@@ -408,12 +408,12 @@ export function TableTab() {
                   {vakExpiringEOY.map((b) => (
                     <div key={b.id} className="flex justify-between text-xs text-red-600">
                       <span className="truncate max-w-[60%]">{b.label}</span>
-                      <span className="font-mono">{fmtHours(b.hours)} u · vervalt {b.expiresOn}</span>
+                      <span className="font-mono">{fmtHours(b.hours)} u <span className="text-red-400">{fmtDays(b.hours)}</span> · vervalt {b.expiresOn}</span>
                     </div>
                   ))}
                   <div className="flex justify-between text-xs font-bold text-red-700 border-t border-red-200 pt-1.5 mt-1">
                     <span>Totaal verlies</span>
-                    <span className="font-mono">−{fmtHours(vakLostEOY)} u</span>
+                    <span className="font-mono">−{fmtHours(vakLostEOY)} u <span className="font-normal text-red-400">{fmtDays(vakLostEOY)}</span></span>
                   </div>
                 </div>
               )}
@@ -422,21 +422,21 @@ export function TableTab() {
                 <p className="text-xs font-medium text-blue-700">✅ Overdraagbaar naar {year + 1}</p>
                 <div className="flex justify-between text-xs text-blue-600">
                   <span>VAK zonder vervaldatum</span>
-                  <span className="font-mono">{fmtHours(vakSurvivingHours)} u</span>
+                  <span className="font-mono">{fmtHours(vakSurvivingHours)} u <span className="text-blue-400">{fmtDays(vakSurvivingHours)}</span></span>
                 </div>
                 <div className="flex justify-between text-xs text-blue-600">
                   <span>Plafond overdracht (max {MAX_CARRY_VAK_HOURS} hours)</span>
-                  <span className="font-mono">{fmtHours(carryVakMax)} u</span>
+                  <span className="font-mono">{fmtHours(carryVakMax)} u <span className="text-blue-400">{fmtDays(carryVakMax)}</span></span>
                 </div>
                 {vakLostAboveCap > 0 && (
                   <div className="flex justify-between text-xs text-amber-600 font-medium">
                     <span>Verlies boven plafond</span>
-                    <span className="font-mono">−{fmtHours(vakLostAboveCap)} u</span>
+                    <span className="font-mono">−{fmtHours(vakLostAboveCap)} u <span className="font-normal text-amber-400">{fmtDays(vakLostAboveCap)}</span></span>
                   </div>
                 )}
                 <div className="flex justify-between text-xs font-bold text-blue-800 border-t border-blue-200 pt-1.5 mt-1">
                   <span>Effectieve overdracht VAK</span>
-                  <span className="font-mono">{fmtHours(vakCarryOver)} u = {(vakCarryOver / VAK_PER_DAY).toFixed(1)} dagen</span>
+                  <span className="font-mono">{fmtHours(vakCarryOver)} u <span className="font-normal text-blue-400">{fmtDays(vakCarryOver)}</span></span>
                 </div>
               </div>
             </div>
@@ -447,24 +447,24 @@ export function TableTab() {
 
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">Huidig saldo</span>
-                <span className="font-mono font-bold text-cyan-700">{fmtHours(rvBalance)} u</span>
+                <span className="font-mono font-bold text-cyan-700">{fmtHours(rvBalance)} u <span className="font-normal text-cyan-400 text-xs">{fmtDays(rvBalance)}</span></span>
               </div>
 
               <div className="rounded-lg bg-cyan-50 border border-cyan-200 p-3 space-y-1.5">
                 <p className="text-xs font-medium text-cyan-700">✅ Overdraagbaar naar {year + 1}</p>
                 <div className="flex justify-between text-xs text-cyan-600">
                   <span>Plafond overdracht RV</span>
-                  <span className="font-mono">{fmtHours(MAX_CARRY_RV_HOURS)} u</span>
+                  <span className="font-mono">{fmtHours(MAX_CARRY_RV_HOURS)} u <span className="text-cyan-400">{fmtDays(MAX_CARRY_RV_HOURS)}</span></span>
                 </div>
                 {rvLost > 0 && (
                   <div className="flex justify-between text-xs text-amber-600 font-medium">
                     <span>Verlies boven plafond</span>
-                    <span className="font-mono">−{fmtHours(rvLost)} u</span>
+                    <span className="font-mono">−{fmtHours(rvLost)} u <span className="font-normal text-amber-400">{fmtDays(rvLost)}</span></span>
                   </div>
                 )}
                 <div className="flex justify-between text-xs font-bold text-cyan-800 border-t border-cyan-200 pt-1.5 mt-1">
                   <span>Effectieve overdracht RV</span>
-                  <span className="font-mono">{fmtHours(rvCarryOver)} u</span>
+                  <span className="font-mono">{fmtHours(rvCarryOver)} u <span className="font-normal text-cyan-400">{fmtDays(rvCarryOver)}</span></span>
                 </div>
               </div>
 
@@ -479,19 +479,19 @@ export function TableTab() {
             <div>
               <span className="text-xs text-gray-500">Totaal verlies VAK</span>
               <span className={`ml-2 text-sm font-bold ${vakLostEOY + vakLostAboveCap > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {fmtHours(vakLostEOY + vakLostAboveCap)} u
+                {fmtHours(vakLostEOY + vakLostAboveCap)} u <span className="text-xs font-normal opacity-70">{fmtDays(vakLostEOY + vakLostAboveCap)}</span>
               </span>
             </div>
             <div>
               <span className="text-xs text-gray-500">Totaal verlies RV</span>
               <span className={`ml-2 text-sm font-bold ${rvLost > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {fmtHours(rvLost)} u
+                {fmtHours(rvLost)} u <span className="text-xs font-normal opacity-70">{fmtDays(rvLost)}</span>
               </span>
             </div>
             <div>
               <span className="text-xs text-gray-500">Meeneembaar naar {year + 1}</span>
               <span className="ml-2 text-sm font-bold text-blue-700">
-                VAK {fmtHours(vakCarryOver)} u + RV {fmtHours(rvCarryOver)} u
+                VAK {fmtHours(vakCarryOver)} u <span className="text-xs font-normal text-blue-400">{fmtDays(vakCarryOver)}</span> + RV {fmtHours(rvCarryOver)} u <span className="text-xs font-normal text-blue-400">{fmtDays(rvCarryOver)}</span>
               </span>
             </div>
           </div>
@@ -499,6 +499,10 @@ export function TableTab() {
       )}
     </div>
   );
+}
+
+function fmtDays(hours: number): string {
+  return `(${(hours / 8).toFixed(1)} d)`;
 }
 
 function typeToVariant(type: string): Parameters<typeof Badge>[0]['variant'] {
