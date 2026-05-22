@@ -42,7 +42,7 @@ function App() {
       <main className="py-6">
         {activeTab === 'input' && <InputTab />}
         {activeTab === 'overview' && (
-          <div className="flex gap-4 px-4 max-w-[1800px] mx-auto items-start">
+          <div className="flex gap-4 px-4 max-w-[1800px] mx-auto items-start overflow-hidden">
             <div className="w-2/5 flex-shrink-0">
               <CalendarTab />
             </div>

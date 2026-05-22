@@ -253,7 +253,7 @@ export function TableTab() {
   const rvLost = Math.max(0, rvBalance - MAX_CARRY_RV_HOURS);
 
   return (
-    <div className="p-4">
+    <div className="p-4 flex flex-col gap-4" style={{ height: 'calc(100vh - 5.5rem)' }}>
       {/* VAK bucket breakdown */}
       {/* {vakStack.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-x-auto">
@@ -294,7 +294,7 @@ export function TableTab() {
       )} */}
 
       {/* Ledger */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col flex-1 min-h-0">
         <button
           className="w-full px-5 py-3 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
           onClick={() => setShowLedger((v) => !v)}
@@ -303,8 +303,8 @@ export function TableTab() {
           <span className="text-gray-400 text-xs">{showLedger ? '▲ Inklappen' : '▼ Uitklappen'}</span>
         </button>
         {showLedger && (
-          <>
-            <div className="px-5 py-2 border-b border-gray-100 flex justify-end gap-1">
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="px-5 py-2 border-b border-gray-100 flex justify-end gap-1 flex-shrink-0">
               {(['ALL', 'VAK', 'RV', 'EXPIRED'] as FilterType[]).map((f) => (
                 <button
                   key={f}
@@ -318,8 +318,9 @@ export function TableTab() {
             {filtered.length === 0 ? (
               <p className="px-5 py-8 text-center text-gray-400 text-sm">Geen transacties{settings.initialized ? '' : ' — initialiseer eerst een jaar'}.</p>
             ) : (
+              <div className="overflow-auto flex-1 min-h-0">
               <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10">
               <tr className="bg-gray-50 text-gray-500 uppercase tracking-wide text-[10px]">
                 <th className="px-3 py-2 text-left">Datum</th>
                 <th className="px-3 py-2 text-left">Type</th>
@@ -356,14 +357,15 @@ export function TableTab() {
               ))}
             </tbody>
           </table>
+              </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
       {/* ── Year-end summary ─────────────────────────────────── */}
       {settings.initialized && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-6 overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex-shrink-0">
           <button
             className="w-full px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between hover:bg-gray-100 transition-colors"
             onClick={() => setShowYearEnd((v) => !v)}
