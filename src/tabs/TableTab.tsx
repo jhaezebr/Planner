@@ -254,27 +254,8 @@ export function TableTab() {
 
   return (
     <div className="p-4">
-      {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
-          <p className="text-xs text-blue-500 uppercase tracking-wide font-medium">VAK huidig saldo</p>
-          <p className="text-2xl font-bold text-blue-800 mt-1">{fmtHours(currentVak)} u</p>
-          <p className="text-xs text-blue-500">{(currentVak / 8).toFixed(1)} werkdagen</p>
-        </div>
-        <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-4 text-center">
-          <p className="text-xs text-cyan-500 uppercase tracking-wide font-medium">RV huidig saldo</p>
-          <p className="text-2xl font-bold text-cyan-800 mt-1">{fmtHours(rvBalance)} u</p>
-          <p className="text-xs text-cyan-500">{(rvBalance / 8).toFixed(1)} werkdagen</p>
-        </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
-          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Verloven geboekt</p>
-          <p className="text-2xl font-bold text-gray-800 mt-1">{leaveEntries.length}</p>
-          <p className="text-xs text-gray-500">{fmtHours(leaveEntries.reduce((s, l) => s + l.hours, 0))} u totaal</p>
-        </div>
-      </div>
-
       {/* VAK bucket breakdown */}
-      {vakStack.length > 0 && (
+      {/* {vakStack.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-x-auto">
           <button
             className="w-full px-5 py-3 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
@@ -310,7 +291,7 @@ export function TableTab() {
           </table>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Ledger */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">

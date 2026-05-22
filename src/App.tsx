@@ -43,10 +43,10 @@ function App() {
         {activeTab === 'input' && <InputTab />}
         {activeTab === 'overview' && (
           <div className="flex gap-4 px-4 max-w-[1800px] mx-auto items-start">
-            <div className="w-[440px] flex-shrink-0">
+            <div className="w-2/5 flex-shrink-0">
               <CalendarTab />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="w-3/5 min-w-0">
               <TableTab />
             </div>
           </div>

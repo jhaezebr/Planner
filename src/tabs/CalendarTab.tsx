@@ -203,6 +203,27 @@ export function CalendarTab() {
           );
         })}
       </div>
+
+      {/* Summary cards */}
+      {settings.initialized && (
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
+            <p className="text-[10px] text-blue-500 uppercase tracking-wide font-medium">VAK saldo</p>
+            <p className="text-lg font-bold text-blue-800 mt-0.5">{fmtHours(vakStack.reduce((s, b) => s + b.hours, 0))} u</p>
+            <p className="text-[10px] text-blue-500">{(vakStack.reduce((s, b) => s + b.hours, 0) / 8).toFixed(1)} d</p>
+          </div>
+          <div className="bg-cyan-50 border border-cyan-200 rounded-xl p-3 text-center">
+            <p className="text-[10px] text-cyan-500 uppercase tracking-wide font-medium">RV saldo</p>
+            <p className="text-lg font-bold text-cyan-800 mt-0.5">{fmtHours(store.rvBalance)} u</p>
+            <p className="text-[10px] text-cyan-500">{(store.rvBalance / 8).toFixed(1)} d</p>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wide font-medium">Verloven</p>
+            <p className="text-lg font-bold text-gray-800 mt-0.5">{store.leaveEntries.length}</p>
+            <p className="text-[10px] text-gray-500">{fmtHours(store.leaveEntries.reduce((s, l) => s + l.hours, 0))} u</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
