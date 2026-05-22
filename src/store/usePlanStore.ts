@@ -22,7 +22,6 @@ import {
   vakTotal,
   WORK_PCT,
   HOURS_PER_DAY,
-  QUARTERLY_RV,
 } from '../utils/holidays';
 import type { VariableHolidayDates } from '../utils/holidays';
 
@@ -54,6 +53,7 @@ interface PlanStore extends AppState {
     restDay: number,
     carryVakHours: number,
     carryRvHours: number,
+    workPct?: number,
     variableDates?: VariableHolidayDates,
   ) => void;
   updateSettings: (s: Partial<AppSettings>) => void;
@@ -86,8 +86,10 @@ export const usePlanStore = create<PlanStore>()(
       updateSettings: (s) =>
         set((state) => ({ settings: { ...state.settings, ...s } })),
 
-      initYear: (year, restDay, carryVakHours, carryRvHours, variableDates?) => {
-        const wv = HOURS_PER_DAY * WORK_PCT * 26; // 166.4h base WV
+      initYear: (year, restDay, carryVakHours, carryRvHours, workPct = WORK_PCT, variableDates?) => {
+        const wv = HOURS_PER_DAY * workPct * 26;
+        const quarterlyRv = 24 * workPct;
+        const vakPerDay = HOURS_PER_DAY * workPct;
 
         // --- VAK STACK (ordered: expiring first, WV base last) ---
         const vakStack: VakBucket[] = [];
@@ -108,7 +110,7 @@ export const usePlanStore = create<PlanStore>()(
         // 2. Base WV (no expiry, always at bottom)
         vakStack.push({
           id: genId(),
-          label: `Wettelijk verlof ${year} (26 dagen × ${WORK_PCT})`,
+          label: `Wettelijk verlof ${year} (26 dagen × ${workPct})`,
           type: 'WV',
           hours: wv,
           totalHours: wv,
@@ -134,11 +136,11 @@ export const usePlanStore = create<PlanStore>()(
 
         const quarters = [`${year}-01-01`, `${year}-04-01`, `${year}-07-01`, `${year}-10-01`];
         for (const q of quarters) {
-          rvBal += QUARTERLY_RV;
+          rvBal += quarterlyRv;
           rvTxs.push({
             id: genId(),
             date: q,
-            deltaHours: QUARTERLY_RV,
+            deltaHours: quarterlyRv,
             label: `Kwartaaltoewijzing RV`,
             balance: rvBal,
           });
@@ -149,7 +151,7 @@ export const usePlanStore = create<PlanStore>()(
         const holidayEvents: HolidayEvent[] = [];
 
         for (const h of rawHolidays) {
-          const earnedHours = getHolidayVakHours(h);
+          const earnedHours = h.type === 'GF' ? (HOURS_PER_DAY / 2) * workPct : vakPerDay;
           const expiresOn = getVakExpiry(h);
           const bucketId = genId();
           vakStack.push({
@@ -167,7 +169,7 @@ export const usePlanStore = create<PlanStore>()(
         set({
           settings: {
             year,
-            workPct: WORK_PCT,
+            workPct,
             restDay,
             initialized: true,
           },

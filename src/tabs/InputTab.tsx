@@ -11,6 +11,7 @@ export function InputTab() {
   // Year setup form
   const [setupYear, setSetupYear] = useState(settings.year || new Date().getFullYear());
   const [setupRestDay, setSetupRestDay] = useState(settings.restDay ?? 3);
+  const [setupWorkPct, setSetupWorkPct] = useState(settings.workPct ?? 1.0);
   const [carryVak, setCarryVak] = useState(0);
   const [carryRv, setCarryRv] = useState(0);
 
@@ -53,7 +54,7 @@ export function InputTab() {
     setInitLoading(true);
     try {
       const variableDates = await fetchVariableHolidayDates(setupYear);
-      store.initYear(setupYear, setupRestDay, carryVak, carryRv, variableDates);
+      store.initYear(setupYear, setupRestDay, carryVak, carryRv, setupWorkPct, variableDates);
     } finally {
       setInitLoading(false);
     }
@@ -84,30 +85,42 @@ export function InputTab() {
             </p>
           )}
         </div>
-        <div className="px-4 py-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div>
-            <label className="label">Jaar</label>
-            <input type="number" className="input" value={setupYear}
-              onChange={(e) => setSetupYear(Number(e.target.value))} />
+        <div className="px-4 py-3 space-y-3">
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <label className="label">Jaar</label>
+              <input type="number" className="input w-28" value={setupYear}
+                onChange={(e) => setSetupYear(Number(e.target.value))} />
+            </div>
+            <div>
+              <label className="label">Tewerkstelling (%)</label>
+              <input type="number" className="input w-24" min={1} max={100} step={1}
+                value={Math.round(setupWorkPct * 100)}
+                onChange={(e) => setSetupWorkPct(Number(e.target.value) / 100)} />
+            </div>
+            {setupWorkPct < 1 && (
+              <div>
+                <label className="label">Rustdag</label>
+                <select className="input" value={setupRestDay}
+                  onChange={(e) => setSetupRestDay(Number(e.target.value))}>
+                  {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                </select>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="label">Rustdag</label>
-            <select className="input" value={setupRestDay}
-              onChange={(e) => setSetupRestDay(Number(e.target.value))}>
-              {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Overdracht VAK (u, max {MAX_CARRY_VAK_HOURS})</label>
-            <input type="number" className="input" min={0} step={0.1} value={carryVak}
-              onChange={(e) => setCarryVak(Number(e.target.value))} />
-            <p className="text-[10px] text-gray-400 mt-0.5">Vervalt 28 feb {setupYear}</p>
-          </div>
-          <div>
-            <label className="label">Overdracht RV (u, max {MAX_CARRY_RV_HOURS})</label>
-            <input type="number" className="input" min={0} step={0.1} value={carryRv}
-              onChange={(e) => setCarryRv(Number(e.target.value))} />
-            <p className="text-[10px] text-gray-400 mt-0.5">Geen vervaldatum</p>
+          <div className="flex flex-wrap gap-3">
+            <div>
+              <label className="label">Overdracht VAK (u, max {MAX_CARRY_VAK_HOURS})</label>
+              <input type="number" className="input w-28" min={0} step={0.1} value={carryVak}
+                onChange={(e) => setCarryVak(Number(e.target.value))} />
+              <p className="text-[10px] text-gray-400 mt-0.5">Vervalt 28 feb {setupYear}</p>
+            </div>
+            <div>
+              <label className="label">Overdracht RV (u, max {MAX_CARRY_RV_HOURS})</label>
+              <input type="number" className="input w-28" min={0} step={0.1} value={carryRv}
+                onChange={(e) => setCarryRv(Number(e.target.value))} />
+              <p className="text-[10px] text-gray-400 mt-0.5">Geen vervaldatum</p>
+            </div>
           </div>
         </div>
         <div className="px-4 pb-3">
