@@ -3,11 +3,15 @@ import { InputTab } from './tabs/InputTab';
 import { CalendarTab } from './tabs/CalendarTab';
 import { TableTab } from './tabs/TableTab';
 import { usePlanStore } from './store/usePlanStore';
-import { WORK_PCT, HOURS_PER_DAY, VAK_PER_DAY, QUARTERLY_RV, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS, fmtHours } from './utils/holidays';
+import { HOURS_PER_DAY, MAX_CARRY_RV_HOURS, fmtHours } from './utils/holidays';
 
 function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { settings } = usePlanStore();
+  const workPct = settings.workPct ?? 0.8;
+  const vakPerDay = HOURS_PER_DAY * workPct;
+  const quarterlyRv = 24 * workPct;
+  const maxCarryVak = Math.round(6 * HOURS_PER_DAY * workPct * 10) / 10;
 
   return (
     <div className="h-screen bg-gray-50 font-sans flex flex-col overflow-hidden">
@@ -37,15 +41,15 @@ function App() {
               <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
                 <span className="font-semibold text-gray-700">{settings.year}</span>
                 <span className="text-gray-300">|</span>
-                <span>Tewerkstelling <strong className="text-gray-700">{WORK_PCT * 100}%</strong></span>
+                <span>Tewerkstelling <strong className="text-gray-700">{Math.round(workPct * 100)}%</strong></span>
                 <span className="text-gray-300">|</span>
                 <span>Werkdag <strong className="text-gray-700">{HOURS_PER_DAY}u</strong></span>
                 <span className="text-gray-300">|</span>
-                <span>VAK/feestdag <strong className="text-gray-700">{fmtHours(VAK_PER_DAY)}u</strong></span>
+                <span>VAK/feestdag <strong className="text-gray-700">{fmtHours(vakPerDay)}u</strong></span>
                 <span className="text-gray-300">|</span>
-                <span>RV/kwartaal <strong className="text-gray-700">{fmtHours(QUARTERLY_RV)}u</strong></span>
+                <span>RV/kwartaal <strong className="text-gray-700">{fmtHours(quarterlyRv)}u</strong></span>
                 <span className="text-gray-300">|</span>
-                <span>Max overdracht VAK <strong className="text-gray-700">{fmtHours(MAX_CARRY_VAK_HOURS)}u</strong></span>
+                <span>Max overdracht VAK <strong className="text-gray-700">{fmtHours(maxCarryVak)}u</strong></span>
                 <span className="text-gray-300">|</span>
                 <span>Max overdracht RV <strong className="text-gray-700">{fmtHours(MAX_CARRY_RV_HOURS)}u</strong></span>
               </div>

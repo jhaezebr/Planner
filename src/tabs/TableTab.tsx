@@ -135,7 +135,7 @@ export function TableTab() {
       });
     } else if (kind === 'HOLIDAY') {
       const h = payload as typeof holidayEvents[0];
-      const hrs = h.type === 'GF' ? 4 * 0.8 : 8 * 0.8;
+      const hrs = h.type === 'GF' ? 4 * (settings.workPct ?? 0.8) : 8 * (settings.workPct ?? 0.8);
       runVak += hrs;
       rows.push({
         id: h.id,

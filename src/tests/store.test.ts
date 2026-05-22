@@ -753,3 +753,71 @@ describe('resetAll', () => {
     expect(s().holidayEvents).toHaveLength(0);
   });
 });
+
+// ─── workPct variability ─────────────────────────────────────────────────────
+
+describe('workPct variability', () => {
+  function initWithPct(pct: number) {
+    s().resetAll();
+    s().initYear(YEAR, REST_DAY, 0, 0, pct);
+  }
+
+  const PCT_CASES: [string, number][] = [
+    ['50%', 0.5],
+    ['80%', 0.8],
+    ['100%', 1.0],
+  ];
+
+  for (const [label, pct] of PCT_CASES) {
+    describe(`workPct = ${label}`, () => {
+      it(`WV bucket = 26 × 8h × ${label}`, () => {
+        initWithPct(pct);
+        const wv = s().vakStack.find((b) => b.type === 'WV')!;
+        expect(wv).toBeDefined();
+        expect(wv.hours).toBeCloseTo(26 * 8 * pct);
+      });
+
+      it(`quarterly RV = 24 × ${label} per quarter`, () => {
+        initWithPct(pct);
+        expect(s().rvBalance).toBeCloseTo(4 * 24 * pct);
+      });
+
+      it(`non-GF holiday bucket = 8h × ${label}`, () => {
+        initWithPct(pct);
+        const hol = s().holidayEvents.find((h) => h.type !== 'GF')!;
+        const bucket = s().vakStack.find((b) => b.id === hol.vakBucketId)!;
+        expect(bucket).toBeDefined();
+        expect(bucket.hours).toBeCloseTo(8 * pct);
+      });
+
+      it(`GF holiday bucket = 4h × ${label}`, () => {
+        initWithPct(pct);
+        const gf = s().holidayEvents.find((h) => h.type === 'GF')!;
+        const bucket = s().vakStack.find((b) => b.id === gf.vakBucketId)!;
+        expect(bucket).toBeDefined();
+        expect(bucket.hours).toBeCloseTo(4 * pct);
+      });
+
+      it(`markHolidayTaken earns 8h × ${label} for a PENDING non-GF holiday`, () => {
+        initWithPct(pct);
+        const id = injectPending(`${YEAR}-08-20`, 'VF');
+        const vakBefore = vakTotal(s().vakStack);
+        s().markHolidayTaken(id);
+        expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore + 8 * pct);
+      });
+
+      it(`markHolidayTaken earns 4h × ${label} for a PENDING GF holiday`, () => {
+        initWithPct(pct);
+        const id = injectPending(`${YEAR}-07-17`, 'GF');
+        const vakBefore = vakTotal(s().vakStack);
+        s().markHolidayTaken(id);
+        expect(vakTotal(s().vakStack)).toBeCloseTo(vakBefore + 4 * pct);
+      });
+
+      it(`settings.workPct is stored as ${label}`, () => {
+        initWithPct(pct);
+        expect(s().settings.workPct).toBeCloseTo(pct);
+      });
+    });
+  }
+});

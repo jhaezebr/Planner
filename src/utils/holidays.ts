@@ -173,9 +173,9 @@ export function getVakExpiry(holiday: HolidayEvent): string | null {
 }
 
 /** Hours added to VAK when a holiday is marked as taken */
-export function getHolidayVakHours(holiday: HolidayEvent): number {
-  if (holiday.type === 'GF') return (HOURS_PER_DAY / 2) * WORK_PCT; // 4h * 0.8 = 3.2h
-  return VAK_PER_DAY; // 8h * 0.8 = 6.4h
+export function getHolidayVakHours(holiday: HolidayEvent, workPct: number = WORK_PCT): number {
+  if (holiday.type === 'GF') return (HOURS_PER_DAY / 2) * workPct;
+  return HOURS_PER_DAY * workPct;
 }
 
 /** Sort VAK buckets: null expiry (no-expiry) goes last, nearest expiry goes first */

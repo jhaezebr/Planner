@@ -187,7 +187,7 @@ export const usePlanStore = create<PlanStore>()(
         const holiday = state.holidayEvents.find((h) => h.id === holidayId);
         if (!holiday || holiday.status !== 'PENDING') return;
 
-        const earnedHours = getHolidayVakHours(holiday);
+        const earnedHours = getHolidayVakHours(holiday, state.settings.workPct ?? WORK_PCT);
         const expiresOn = getVakExpiry(holiday);
 
         const bucket: VakBucket = {
@@ -234,7 +234,7 @@ export const usePlanStore = create<PlanStore>()(
         };
 
         // Auto-earn the VAK bucket immediately
-        const earnedHours = getHolidayVakHours(tempHoliday);
+        const earnedHours = getHolidayVakHours(tempHoliday, settings.workPct ?? WORK_PCT);
         const expiresOn = getVakExpiry(tempHoliday);
         const bucketId = genId();
         const bucket: VakBucket = {
