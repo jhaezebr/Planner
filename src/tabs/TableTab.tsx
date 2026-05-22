@@ -31,6 +31,7 @@ export function TableTab() {
   const [filter, setFilter] = useState<FilterType>('ALL');
   const [showVakDetail, setShowVakDetail] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
+  const [showYearEnd, setShowYearEnd] = useState(true);
 
   // Build a unified sorted ledger
   const rows: LedgerRow[] = [];
@@ -382,15 +383,22 @@ export function TableTab() {
       {/* ── Year-end summary ─────────────────────────────────── */}
       {settings.initialized && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mt-6 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
-            <h3 className="font-semibold text-gray-800 text-sm">
-              📋 Jaareinde samenvatting — 31 december {year}
-            </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Projectie op basis van huidige boekingen. Openstaande feestdagen (PENDING) zijn <em>niet</em> meegerekend.
-            </p>
-          </div>
+          <button
+            className="w-full px-5 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between hover:bg-gray-100 transition-colors"
+            onClick={() => setShowYearEnd((v) => !v)}
+          >
+            <div className="text-left">
+              <h3 className="font-semibold text-gray-800 text-sm">
+                📋 Jaareinde samenvatting — 31 december {year}
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Projectie op basis van huidige boekingen. Openstaande feestdagen (PENDING) zijn <em>niet</em> meegerekend.
+              </p>
+            </div>
+            <span className="text-gray-400 text-xs ml-4 shrink-0">{showYearEnd ? '▲ Inklappen' : '▼ Uitklappen'}</span>
+          </button>
 
+          {showYearEnd && (
           <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
 
             {/* VAK column */}
@@ -473,8 +481,9 @@ export function TableTab() {
               )}
             </div>
           </div>
+          )} {/* end showYearEnd */}
 
-          {/* Bottom totals bar */}
+          {/* Bottom totals bar — always visible */}
           <div className="bg-gray-50 border-t border-gray-100 px-5 py-3 flex flex-wrap gap-6">
             <div>
               <span className="text-xs text-gray-500">Totaal verlies VAK</span>
