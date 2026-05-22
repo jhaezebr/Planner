@@ -261,7 +261,7 @@ export function InputTab() {
           </section>
 
           {/* ── Booked Leave List ─────────────────────────────── */}
-          {leaveEntries.length > 0 && (
+          {/* {leaveEntries.length > 0 && (
             <section className="bg-white rounded-xl border border-gray-200 shadow-sm">
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-800 text-base">Geboekte verloven</h2>
@@ -295,7 +295,7 @@ export function InputTab() {
                 </table>
               </div>
             </section>
-          )}
+          )} */}
 
           {/* ── Expire Buckets ────────────────────────────────── */}
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
