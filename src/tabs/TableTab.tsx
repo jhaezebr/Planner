@@ -253,7 +253,7 @@ export function TableTab() {
   const rvLost = Math.max(0, rvBalance - MAX_CARRY_RV_HOURS);
 
   return (
-    <div className="p-4 flex flex-col gap-4" style={{ height: 'calc(100vh - 5.5rem)' }}>
+    <div className="p-4 flex flex-col gap-4" style={{ height: 'calc(100vh - 4rem)' }}>
       {/* VAK bucket breakdown */}
       {/* {vakStack.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-x-auto">
@@ -294,7 +294,7 @@ export function TableTab() {
       )} */}
 
       {/* Ledger */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col flex-1 min-h-0">
+      <div className={`bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col flex-shrink-0 ${showLedger ? 'flex-1 min-h-0' : ''}`}>
         <button
           className="w-full px-5 py-3 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
           onClick={() => setShowLedger((v) => !v)}
