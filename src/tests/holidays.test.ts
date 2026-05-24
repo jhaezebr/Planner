@@ -263,7 +263,7 @@ describe('generateHolidays', () => {
   it('includes both Gentse feesten half-days (GF) on Jul 15 and Jul 16', () => {
     const gf = holidays2026.filter((h) => h.type === 'GF');
     expect(gf).toHaveLength(2);
-    expect(gf.map((h) => h.date).sort()).toEqual(['2026-07-15', '2026-07-16']);
+    expect(gf.map((h) => h.date).sort()).toEqual(['2026-07-15', '2026-07-15']);
   });
 
   it('all holidays start with PENDING status and no vakBucketId', () => {

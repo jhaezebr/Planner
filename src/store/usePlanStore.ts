@@ -11,23 +11,19 @@ import type {
   LeaveEntry,
   LeaveSource,
   RvTransaction,
-  BucketConsumption,
 } from '../types';
 import {
-  generateHolidays,
   getVakExpiry,
   getHolidayVakHours,
   sortVakStack,
   isBucketExpired,
   vakTotal,
   WORK_PCT,
-  HOURS_PER_DAY,
 } from '../utils/holidays';
 import type { VariableHolidayDates } from '../utils/holidays';
-
-function genId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
+import { genId } from '../utils/genId';
+import { consumeVak } from './consumeVak';
+import { buildInitYearState } from './initYearState';
 
 const defaultSettings: AppSettings = {
   year: new Date().getFullYear(),
@@ -87,96 +83,10 @@ export const usePlanStore = create<PlanStore>()(
         set((state) => ({ settings: { ...state.settings, ...s } })),
 
       initYear: (year, restDay, carryVakHours, carryRvHours, workPct = WORK_PCT, variableDates?) => {
-        const wv = HOURS_PER_DAY * workPct * 26;
-        const quarterlyRv = 24 * workPct;
-        const vakPerDay = HOURS_PER_DAY * workPct;
-
-        // --- VAK STACK (ordered: expiring first, WV base last) ---
-        const vakStack: VakBucket[] = [];
-
-        // 1. Carry-over VAK (expires Feb 28, soft (not) capped at MAX_CARRY_VAK_HOURS)
-        if (carryVakHours > 0) {
-          vakStack.push({
-            id: genId(),
-            label: `Overdracht VAK ${year - 1}`,
-            type: 'CARRY_VAK',
-            hours: carryVakHours,
-            totalHours: carryVakHours,
-            addedOn: `${year}-01-01`,
-            expiresOn: `${year}-02-28`,
-          });
-        }
-
-        // 2. Base WV (no expiry, always at bottom)
-        vakStack.push({
-          id: genId(),
-          label: `Wettelijk verlof ${year} (26 dagen × ${workPct})`,
-          type: 'WV',
-          hours: wv,
-          totalHours: wv,
-          addedOn: `${year}-01-01`,
-          expiresOn: null,
-        });
-
-        // --- RV TRANSACTIONS: carry-over + quarterly top-ups ---
-        const rvTxs: RvTransaction[] = [];
-        let rvBal = 0;
-
-        // Carry-over RV from previous year (soft (not) capped at MAX_CARRY_RV_HOURS)
-        if (carryRvHours > 0) {
-          rvBal += carryRvHours;
-          rvTxs.push({
-            id: genId(),
-            date: `${year}-01-01`,
-            deltaHours: carryRvHours,
-            label: `Overdracht RV ${year - 1}`,
-            balance: rvBal,
-          });
-        }
-
-        const quarters = [`${year}-01-01`, `${year}-04-01`, `${year}-07-01`, `${year}-10-01`];
-        for (const q of quarters) {
-          rvBal += quarterlyRv;
-          rvTxs.push({
-            id: genId(),
-            date: q,
-            deltaHours: quarterlyRv,
-            label: `Kwartaaltoewijzing RV`,
-            balance: rvBal,
-          });
-        }
-
-        // --- HOLIDAYS: auto-earn VAK buckets at year start ---
-        const rawHolidays = generateHolidays(year, restDay, variableDates);
-        const holidayEvents: HolidayEvent[] = [];
-
-        for (const h of rawHolidays) {
-          const earnedHours = h.type === 'GF' ? (HOURS_PER_DAY / 2) * workPct : vakPerDay;
-          const expiresOn = getVakExpiry(h);
-          const bucketId = genId();
-          vakStack.push({
-            id: bucketId,
-            label: `${h.label} (${h.date})`,
-            type: h.type,
-            hours: earnedHours,
-            totalHours: earnedHours,
-            addedOn: h.date,
-            expiresOn,
-          });
-          holidayEvents.push({ ...h, status: 'TAKEN', vakBucketId: bucketId });
-        }
-
+        const result = buildInitYearState(year, restDay, carryVakHours, carryRvHours, workPct, variableDates);
         set({
-          settings: {
-            year,
-            workPct,
-            restDay,
-            initialized: true,
-          },
-          vakStack: sortVakStack(vakStack),
-          rvBalance: rvBal,
-          rvTransactions: rvTxs,
-          holidayEvents,
+          settings: { year, workPct, restDay, initialized: true },
+          ...result,
           leaveEntries: [],
           expiredBuckets: [],
         });
@@ -439,48 +349,6 @@ export const usePlanStore = create<PlanStore>()(
 
       resetAll: () => set({ ...initialState }),
     }),
-    {
-      name: 'planpredict-store',
-    },
+    { name: 'planpredict-store' },
   ),
 );
-
-// Helper: consume `hours` from VAK stack (nearest expiry first), returns new stack + consumption log
-/** Holiday bucket types — each represents exactly one public holiday day and must be consumed whole. */
-const HOLIDAY_BUCKET_TYPES: ReadonlySet<string> = new Set(['OF', 'DF', 'RF', 'VF', 'GF']);
-
-function consumeVak(
-  stack: VakBucket[],
-  hours: number,
-  asOf: string,
-  priorityBucketId?: string | null,
-): { newStack: VakBucket[]; consumed: BucketConsumption[] } {
-  const sorted = sortVakStack(stack);
-  // If a priority bucket is specified (the holiday bucket for the leave date),
-  // move it to the front so it is consumed first.
-  if (priorityBucketId) {
-    const idx = sorted.findIndex((b) => b.id === priorityBucketId);
-    if (idx > 0) sorted.unshift(...sorted.splice(idx, 1));
-  }
-  const newStack = sorted.map((b) => ({ ...b }));
-  const consumed: BucketConsumption[] = [];
-  let remaining = hours;
-
-  for (const b of newStack) {
-    if (remaining <= 0) break;
-    if (b.hours <= 0) continue;
-    // Only consume buckets that have been earned by the leave date
-    if (b.addedOn > asOf) continue;
-    // Holiday-type buckets represent exactly one public holiday day and must be
-    // consumed in full. If only a partial amount would be taken, skip this bucket
-    // and let WV (which sorts last) absorb the remainder instead.
-    // Exception: the priority bucket (holiday for this exact date) may be consumed partially.
-    if (HOLIDAY_BUCKET_TYPES.has(b.type) && b.hours > remaining && b.id !== priorityBucketId) continue;
-    const take = Math.min(b.hours, remaining);
-    consumed.push({ bucketId: b.id, bucketLabel: b.label, hours: take });
-    b.hours -= take;
-    remaining -= take;
-  }
-
-  return { newStack, consumed };
-}

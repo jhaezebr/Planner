@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TimeInput } from '../components/TimeInput';
 import { usePlanStore } from '../store/usePlanStore';
 import { DAY_NAMES, HOLIDAY_LABELS, MAX_CARRY_VAK_HOURS, MAX_CARRY_RV_HOURS, fmtHours, vakTotal, VAK_PER_DAY, fetchVariableHolidayDates } from '../utils/holidays';
 import type { HolidayType, BucketType, LeaveSource } from '../types';
@@ -13,7 +14,9 @@ export function InputTab() {
   const [setupRestDay, setSetupRestDay] = useState(settings.restDay ?? 3);
   const [setupWorkPct, setSetupWorkPct] = useState(settings.workPct ?? 1.0);
   const [carryVak, setCarryVak] = useState(0);
+  const [carryVakMinutes, setCarryVakMinutes] = useState(0);
   const [carryRv, setCarryRv] = useState(0);
+  const [carryRvMinutes, setCarryRvMinutes] = useState(0);
 
   // Leave form
   const [lDate, setLDate] = useState('');
@@ -54,7 +57,7 @@ export function InputTab() {
     setInitLoading(true);
     try {
       const variableDates = await fetchVariableHolidayDates(setupYear);
-      store.initYear(setupYear, setupRestDay, carryVak, carryRv, setupWorkPct, variableDates);
+      store.initYear(setupYear, setupRestDay, carryVak + carryVakMinutes / 60, carryRv + carryRvMinutes / 60, setupWorkPct, variableDates);
     } finally {
       setInitLoading(false);
     }
@@ -94,9 +97,11 @@ export function InputTab() {
             </div>
             <div>
               <label className="label">Tewerkstelling (%)</label>
-              <input type="number" className="input w-24" min={1} max={100} step={1}
-                value={Math.round(setupWorkPct * 100)}
-                onChange={(e) => setSetupWorkPct(Number(e.target.value) / 100)} />
+              <select className="input w-24" value={Math.round(setupWorkPct * 100)}
+                onChange={(e) => setSetupWorkPct(Number(e.target.value) / 100)}>
+                <option value={100}>100%</option>
+                <option value={80}>80%</option>
+              </select>
             </div>
             {setupWorkPct < 1 && (
               <div>
@@ -110,15 +115,13 @@ export function InputTab() {
           </div>
           <div className="flex flex-wrap gap-3">
             <div>
-              <label className="label">Overdracht VAK (u, max {MAX_CARRY_VAK_HOURS})</label>
-              <input type="number" className="input w-28" min={0} step={0.1} value={carryVak}
-                onChange={(e) => setCarryVak(Number(e.target.value))} />
+              <label className="label">Overdracht VAK (max {MAX_CARRY_VAK_HOURS}u)</label>
+              <TimeInput hours={carryVak} minutes={carryVakMinutes} onHours={setCarryVak} onMinutes={setCarryVakMinutes} />
               <p className="text-[10px] text-gray-400 mt-0.5">Vervalt 28 feb {setupYear}</p>
             </div>
             <div>
-              <label className="label">Overdracht RV (u, max {MAX_CARRY_RV_HOURS})</label>
-              <input type="number" className="input w-28" min={0} step={0.1} value={carryRv}
-                onChange={(e) => setCarryRv(Number(e.target.value))} />
+              <label className="label">Overdracht RV (max {MAX_CARRY_RV_HOURS}u)</label>
+              <TimeInput hours={carryRv} minutes={carryRvMinutes} onHours={setCarryRv} onMinutes={setCarryRvMinutes} />
               <p className="text-[10px] text-gray-400 mt-0.5">Geen vervaldatum</p>
             </div>
           </div>
@@ -151,14 +154,8 @@ export function InputTab() {
                   <input type="date" className="input" value={lDate} onChange={(e) => setLDate(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label">Uren</label>
-                  <input type="number" className="input w-20" min={0} max={8} value={lHours}
-                    onChange={(e) => setLHours(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label className="label">Minuten</label>
-                  <input type="number" className="input w-20" min={0} max={59} value={lMinutes}
-                    onChange={(e) => setLMinutes(Number(e.target.value))} />
+                  <label className="label">Uren : Min</label>
+                  <TimeInput hours={lHours} minutes={lMinutes} onHours={setLHours} onMinutes={setLMinutes} />
                 </div>
                 <div>
                   <label className="label">Bron</label>
@@ -195,14 +192,8 @@ export function InputTab() {
                   <input type="date" className="input" value={mExpiry} onChange={(e) => setMExpiry(e.target.value)} />
                 </div>
                 <div>
-                  <label className="label">Uren</label>
-                  <input type="number" className="input w-20" min={0} max={24} value={mHours}
-                    onChange={(e) => setMHours(Number(e.target.value))} />
-                </div>
-                <div>
-                  <label className="label">Minuten</label>
-                  <input type="number" className="input w-20" min={0} max={59} value={mMinutes}
-                    onChange={(e) => setMMinutes(Number(e.target.value))} />
+                  <label className="label">Uren : Min</label>
+                  <TimeInput hours={mHours} minutes={mMinutes} onHours={setMHours} onMinutes={setMMinutes} />
                 </div>
                 <div>
                   <label className="label">Type VAK</label>

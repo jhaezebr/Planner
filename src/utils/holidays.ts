@@ -116,8 +116,8 @@ export function generateHolidays(
     make(whitMonday,      'OF', 'Pinkstermaandag'),
     make(`${year}-07-11`, 'DF', 'Feest van de Vlaamse Gemeenschap'),
     make(`${year}-07-21`, 'OF', 'Nationale feestdag'),   // Belgian National Day (not Jul 14)
-    make(`${year}-07-15`, 'GF', 'Gentse feesten (halve dag 1)'),
-    make(`${year}-07-15`, 'GF', 'Gentse feesten (halve dag 2)'),
+    { ...make(`${year}-07-15`, 'GF', 'Gentse feesten (halve dag 1)'), id: `holiday-${year}-07-15-GF-1` },
+    { ...make(`${year}-07-15`, 'GF', 'Gentse feesten (halve dag 2)'), id: `holiday-${year}-07-15-GF-2` },
     make(`${year}-08-15`, 'OF', 'O.L.V. Hemelvaart'),
     make(`${year}-11-01`, 'OF', 'Allerheiligen'),
     make(`${year}-11-02`, 'RF', 'Allerzielen'),
@@ -206,5 +206,10 @@ export function fmtHours(hours: number): string {
 /** Total remaining hours in the VAK stack */
 export function vakTotal(buckets: VakBucket[]): number {
   return buckets.reduce((s, b) => s + b.hours, 0);
+}
+
+/** Format hours as fractional days, e.g. "(1.5 d)" */
+export function fmtDays(hours: number): string {
+  return `(${(hours / HOURS_PER_DAY).toFixed(1)} d)`;
 }
 
