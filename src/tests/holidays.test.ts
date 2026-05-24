@@ -23,7 +23,7 @@ import {
   WORK_PCT,
   VAK_PER_DAY,
 } from '../utils/holidays';
-import type { VakBucket, HolidayEvent } from '../src/types';
+import type { VakBucket, HolidayEvent } from '../types';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
