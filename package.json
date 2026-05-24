@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "tsc -b && vite build",
+        "build": "tsc -b && vite build && mv dist/index.html dist/Planner.html",
         "preview": "vite preview",
         "test": "vitest run",
         "test:watch": "vitest",
@@ -28,6 +28,7 @@
         "tailwindcss": "^3.4.6",
         "typescript": "^5.5.3",
         "vite": "^5.3.4",
+        "vite-plugin-singlefile": "^2.3.3",
         "vitest": "^4.1.6"
     }
 }

@@ -34,7 +34,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: planpredict
-          path: dist/
+          path: dist/Planner.html
           retention-days: 30
 
       - name: Create release
@@ -43,5 +43,5 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: Build ${{ github.run_number }}
-          files: dist/**
+          files: dist/Planner.html
           generate_release_notes: true
